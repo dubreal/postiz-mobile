@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { api, UnauthorizedError } from '@/lib/api';
+import { api, setOrgApiKey, UnauthorizedError } from '@/lib/api';
 import type { SelfUser } from '@/lib/types';
 
 type Status = 'loading' | 'authed' | 'anon';
@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const self = await api.get<SelfUser>('/api/user/self');
+      setOrgApiKey(self.publicApi); // needed for public-API calls (calendar, channels)
       setUser(self);
       setStatus('authed');
     } catch (e) {
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* clearing the cookie is best-effort */
     }
+    setOrgApiKey('');
     setUser(null);
     setStatus('anon');
   }, []);

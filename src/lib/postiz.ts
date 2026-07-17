@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, papi } from './api';
 import type {
   CalendarPost,
   Customer,
@@ -8,11 +8,11 @@ import type {
 } from './types';
 
 export function getIntegrations(): Promise<Integration[]> {
-  return api.get<Integration[]>('/api/public/v1/integrations');
+  return papi.get<Integration[]>('/api/public/v1/integrations');
 }
 
 export function getCustomers(): Promise<Customer[]> {
-  return api.get<Customer[]>('/api/public/v1/groups');
+  return papi.get<Customer[]>('/api/public/v1/groups');
 }
 
 /**
@@ -27,7 +27,7 @@ export async function getCalendar(
 ): Promise<CalendarPost[]> {
   const q = new URLSearchParams({ startDate: startISO, endDate: endISO });
   if (customer) q.set('customer', customer);
-  const { posts } = await api.get<{ posts: CalendarPost[] }>(
+  const { posts } = await papi.get<{ posts: CalendarPost[] }>(
     `/api/public/v1/posts?${q.toString()}`,
   );
   const seen = new Set<string>();
@@ -66,9 +66,9 @@ export interface CreatePostInput {
   channels: CreatePostChannel[];
 }
 
-/** Build the exact body Postiz's POST /public/v1/posts expects and send it. */
-export function createPost(input: CreatePostInput): Promise<unknown> {
-  const body = {
+/** Build the exact body Postiz uses for both posts and Sets. */
+function buildPostBody(input: CreatePostInput) {
+  return {
     type: input.type,
     date: input.dateISO,
     shortLink: false,
@@ -79,14 +79,66 @@ export function createPost(input: CreatePostInput): Promise<unknown> {
       settings: c.settings,
     })),
   };
-  return api.post('/api/public/v1/posts', body);
+}
+
+/** Build the post body and send it to schedule/draft. */
+export function createPost(input: CreatePostInput): Promise<unknown> {
+  return papi.post('/api/public/v1/posts', buildPostBody(input));
+}
+
+// ----- Sets (saved channel + content templates) -----
+
+export interface PostizSet {
+  id: string;
+  name: string;
+  content: string; // JSON string, same shape as a post body
+}
+
+/** Fields extracted from a Set's content to prefill the composer. */
+export interface ParsedSet {
+  channelIds: string[];
+  caption: string;
+  media: { id: string; path: string }[];
+  settingsById: Record<string, Record<string, unknown>>;
+}
+
+export function getSets(): Promise<PostizSet[]> {
+  return api.get<PostizSet[]>('/api/sets');
+}
+
+export function saveSet(name: string, input: CreatePostInput): Promise<unknown> {
+  return api.post('/api/sets', { name, content: JSON.stringify(buildPostBody(input)) });
+}
+
+export function deleteSet(id: string): Promise<unknown> {
+  return api.del(`/api/sets/${id}`);
+}
+
+export function parseSetContent(content: string): ParsedSet {
+  const d = JSON.parse(content) as {
+    posts?: {
+      integration?: { id?: string };
+      settings?: Record<string, unknown>;
+      value?: { content?: string; image?: { id: string; path: string }[] }[];
+    }[];
+  };
+  const posts = d.posts ?? [];
+  const channelIds = posts.map((p) => p.integration?.id).filter(Boolean) as string[];
+  const first = posts[0]?.value?.[0];
+  const caption = first?.content ?? '';
+  const media = (first?.image ?? []).map((m) => ({ id: m.id, path: m.path }));
+  const settingsById: Record<string, Record<string, unknown>> = {};
+  for (const p of posts) {
+    if (p.integration?.id) settingsById[p.integration.id] = p.settings ?? {};
+  }
+  return { channelIds, caption, media, settingsById };
 }
 
 export function deletePost(id: string): Promise<unknown> {
-  return api.del(`/api/public/v1/posts/${id}`);
+  return papi.del(`/api/public/v1/posts/${id}`);
 }
 
 /** Runtime settings schema for a channel (per-provider fields). */
 export function getIntegrationSettings(id: string): Promise<unknown> {
-  return api.get<unknown>(`/api/public/v1/integration-settings/${id}`);
+  return papi.get<unknown>(`/api/public/v1/integration-settings/${id}`);
 }

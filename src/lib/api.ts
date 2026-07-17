@@ -23,6 +23,18 @@ export class UnauthorizedError extends ApiError {
 
 type Json = Record<string, unknown> | unknown[];
 
+// The org's public-API key, read from the authed session (/user/self.publicApi).
+// The public API (/api/public/v1/*) is authenticated by an `Authorization` header,
+// NOT the cookie, so those calls must carry this. It is the user's own org key,
+// retrieved through their existing session, and kept only in memory.
+let orgApiKey = '';
+export function setOrgApiKey(key: string | undefined): void {
+  orgApiKey = key ?? '';
+}
+export function hasOrgApiKey(): boolean {
+  return orgApiKey.length > 0;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
@@ -61,4 +73,19 @@ export const api = {
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   raw: request,
+};
+
+// Public API helpers — same requests, plus the org API key as `Authorization`
+// (bare value, no scheme, per Postiz's PublicAuthMiddleware).
+function withKey(init: RequestInit = {}): RequestInit {
+  return { ...init, headers: { ...init.headers, Authorization: orgApiKey } };
+}
+export const papi = {
+  get: <T>(path: string) => request<T>(path, withKey()),
+  post: <T>(path: string, body?: Json) =>
+    request<T>(
+      path,
+      withKey({ method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+    ),
+  del: <T>(path: string) => request<T>(path, withKey({ method: 'DELETE' })),
 };

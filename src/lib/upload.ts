@@ -34,7 +34,13 @@ async function mediaApi<T>(endpoint: string, data: unknown): Promise<T> {
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(`media/${endpoint} failed (${res.status})`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    // Surface the server's reason (e.g. rejected file type) instead of a bare code.
+    throw new Error(
+      `Upload ${endpoint} failed (${res.status})${detail ? `: ${detail.slice(0, 160)}` : ''}`,
+    );
+  }
   return (await res.json()) as T;
 }
 

@@ -124,6 +124,28 @@ Read this before you deploy. The trust model is stated plainly.
   no credentials. `.env` contains only non-secret settings (URLs, a storage-mode
   flag) and is git-ignored.
 
+## Media format limitations (important)
+
+This is inherited from Postiz and the social platforms, not specific to
+postiz-mobile, but it surfaces here so it is worth knowing:
+
+- **Postiz accepts `.mp4` video and common image types only.** Uploads are size
+  limited to **1 GB video / 30 MB image**. postiz-mobile enforces these and warns
+  before uploading.
+- **HEVC / H.265 video (and 8K/4K clips) may look "broken."** A phone that records
+  in HEVC (Samsung "High efficiency", iPhone default, most 8K modes) produces a
+  valid `.mp4` that the phone plays fine, but **desktop browsers cannot decode
+  HEVC**, so the Postiz desktop preview shows no thumbnail and will not play it.
+  Some platforms (notably Instagram) also reject or heavily downscale HEVC/8K.
+  The file uploaded correctly; it is a codec/resolution issue, not a failure.
+- **For dependable posting, record clips as H.264 at 1080p (or 4K).** On Samsung:
+  Camera → Settings → Advanced video options → Video codec → "H.264 / More
+  compatible" (note: 8K only records in HEVC, so drop to 4K/1080p). On iPhone:
+  Settings → Camera → Formats → "Most Compatible".
+- postiz-mobile cannot reliably detect HEVC from the uploading phone (the phone
+  decodes it natively), so it warns on high resolution as the best available
+  signal. Treat a missing desktop preview as a codec hint, not a bug.
+
 ## Compatibility
 
 Tested against **Postiz v2.21.9**. It relies on Postiz's private API

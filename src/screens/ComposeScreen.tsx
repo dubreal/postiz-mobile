@@ -1,7 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Image as ImageIcon, X } from '@phosphor-icons/react';
-import { getIntegrations, createPost } from '@/lib/postiz';
+import {
+  CheckCircle,
+  Image as ImageIcon,
+  X,
+  Stack,
+  FloppyDisk,
+  Trash,
+} from '@phosphor-icons/react';
+import {
+  getIntegrations,
+  createPost,
+  getSets,
+  saveSet,
+  deleteSet,
+  parseSetContent,
+  type CreatePostChannel,
+  type PostizSet,
+} from '@/lib/postiz';
 import { useAsync } from '@/lib/useAsync';
 import {
   PROVIDER_FIELDS,
@@ -34,10 +50,95 @@ export function ComposeScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  const [sets, setSets] = useState<PostizSet[]>([]);
+  const [showSaveSet, setShowSaveSet] = useState(false);
+  const [setName, setSetName] = useState('');
+  const [savingSet, setSavingSet] = useState(false);
+
   const active = useMemo(
     () => (channels ?? []).filter((c) => selectedIds.has(c.id)),
     [channels, selectedIds],
   );
+
+  const loadSets = useCallback(async () => {
+    try {
+      setSets(await getSets());
+    } catch {
+      /* sets are optional; ignore load errors */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSets();
+  }, [loadSets]);
+
+  /** Current composer state as post channels (shared by submit and save-as-set). */
+  const currentChannels = useCallback(
+    (): CreatePostChannel[] =>
+      active.map((intg) => ({
+        integrationId: intg.id,
+        value: [
+          { content: caption, image: attached.map((m) => ({ id: m.id, path: m.path })) },
+        ],
+        settings: { ...defaultSettings(intg.identifier), ...fieldValues[intg.id] },
+      })),
+    [active, caption, attached, fieldValues],
+  );
+
+  function applySet(set: PostizSet) {
+    try {
+      const p = parseSetContent(set.content);
+      setSelectedIds(new Set(p.channelIds));
+      setCaption(p.caption);
+      setAttached(p.media.map((m) => ({ id: m.id, path: m.path, name: '' })));
+      const fv: FieldValues = {};
+      for (const [id, settings] of Object.entries(p.settingsById)) {
+        const intg = (channels ?? []).find((c) => c.id === id);
+        const seeded = intg ? seedFields(intg.identifier) : {};
+        const strs: Record<string, string> = {};
+        for (const [k, v] of Object.entries(settings)) {
+          if (typeof v === 'string') strs[k] = v;
+        }
+        fv[id] = { ...seeded, ...strs };
+      }
+      setFieldValues(fv);
+      setFormError(null);
+    } catch {
+      setFormError('Could not load that set.');
+    }
+  }
+
+  async function onSaveSet() {
+    if (active.length === 0) {
+      setFormError('Pick at least one channel before saving a set.');
+      return;
+    }
+    if (!setName.trim()) return;
+    setSavingSet(true);
+    try {
+      await saveSet(setName.trim(), {
+        type: 'schedule',
+        dateISO: localInputToUtcISO(scheduleLocal),
+        channels: currentChannels(),
+      });
+      setSetName('');
+      setShowSaveSet(false);
+      await loadSets();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not save the set.');
+    } finally {
+      setSavingSet(false);
+    }
+  }
+
+  async function onDeleteSet(id: string) {
+    try {
+      await deleteSet(id);
+      await loadSets();
+    } catch {
+      /* ignore */
+    }
+  }
 
   function toggleChannel(intg: Integration) {
     setSelectedIds((prev) => {
@@ -85,16 +186,7 @@ export function ComposeScreen() {
       await createPost({
         type: asDraft ? 'draft' : 'schedule',
         dateISO: localInputToUtcISO(scheduleLocal),
-        channels: active.map((intg) => ({
-          integrationId: intg.id,
-          value: [
-            {
-              content: caption,
-              image: attached.map((m) => ({ id: m.id, path: m.path })),
-            },
-          ],
-          settings: { ...defaultSettings(intg.identifier), ...fieldValues[intg.id] },
-        })),
+        channels: currentChannels(),
       });
       setDone(true);
       setTimeout(() => navigate('/'), 1200);
@@ -125,6 +217,68 @@ export function ComposeScreen() {
       <header>
         <h1 className="text-xl font-bold text-newTextColor">Compose</h1>
       </header>
+
+      {/* Sets — saved channel + content templates */}
+      <div className="flex flex-col gap-2 rounded-[12px] border border-newBorder bg-newBgColorInner p-3">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-newTextColor">
+            <Stack size={16} weight="bold" /> Sets
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowSaveSet((s) => !s)}
+            className="flex items-center gap-1 text-xs font-medium text-btnPrimary"
+          >
+            <FloppyDisk size={14} weight="bold" /> Save current
+          </button>
+        </div>
+
+        {sets.length === 0 ? (
+          <p className="text-xs text-newTableText">
+            No sets yet. Build a post, then Save current to reuse it.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {sets.map((s) => (
+              <span
+                key={s.id}
+                className="flex items-center gap-1.5 rounded-full border border-newBorder bg-newBgColor py-1 pl-3 pr-1.5 text-sm text-newTextColor"
+              >
+                <button type="button" onClick={() => applySet(s)} className="font-medium">
+                  {s.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteSet(s.id)}
+                  aria-label={`Delete set ${s.name}`}
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-newTableText hover:text-[#ff6b6b]"
+                >
+                  <Trash size={13} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {showSaveSet && (
+          <div className="mt-1 flex gap-2">
+            <input
+              type="text"
+              value={setName}
+              onChange={(e) => setSetName(e.target.value)}
+              placeholder="Set name"
+              className="min-w-0 flex-1 rounded-[10px] border border-newBorder bg-newBgColor px-3 py-2 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none"
+            />
+            <Button
+              onClick={onSaveSet}
+              loading={savingSet}
+              className="h-11 min-h-0 shrink-0 px-4"
+            >
+              Save
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Channels */}
       <Field label="Channels">
