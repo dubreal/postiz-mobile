@@ -36,6 +36,17 @@ export function defaultScheduleLocal(): string {
   return dayjs().add(1, 'hour').startOf('hour').format('YYYY-MM-DDTHH:mm');
 }
 
+/**
+ * A post is locked (not editable) once it has published or is publishing now.
+ * Postiz has no explicit "publishing" state, so a QUEUE post whose time has
+ * arrived counts as in-flight and locked. DRAFT/ERROR/future-QUEUE stay editable.
+ */
+export function isPostLocked(state: string, publishDateISO: string): boolean {
+  if (state === 'PUBLISHED') return true;
+  if (state === 'QUEUE' && !toLocal(publishDateISO).isAfter(dayjs())) return true;
+  return false;
+}
+
 /** Strip HTML tags to a short plain-text preview of post content. */
 export function stripHtml(html: string, max = 140): string {
   const text = html

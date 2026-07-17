@@ -8,6 +8,13 @@
   color-scheme: dark light;
 }
 
+// Postiz's accent (#612bd3) is hard to read on the dark background; use a lighter
+// purple in dark mode only. Same specificity as colors.scss and declared after,
+// so it wins. Light mode keeps Postiz's original.
+:root .dark {
+  --new-btn-primary: #966fd6;
+}
+
 html,
 body,
 #root {

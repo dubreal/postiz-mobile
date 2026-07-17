@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Images } from '@phosphor-icons/react';
-import { getMedia } from '@/lib/postiz';
-import { EmptyState, ErrorState, Skeleton } from '@/components/ui';
+import { getMedia, deleteMedia } from '@/lib/postiz';
+import { EmptyState, ErrorState, Skeleton, ConfirmModal } from '@/components/ui';
 import { Uploader } from '@/components/Uploader';
 import { MediaGrid } from '@/components/MediaGrid';
+import { MediaViewer } from '@/components/MediaViewer';
 import { ApiError } from '@/lib/api';
 import type { MediaItem } from '@/lib/types';
 
@@ -11,6 +12,9 @@ export function MediaScreen() {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<MediaItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState<MediaItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,6 +36,19 @@ export function MediaScreen() {
   const onUploaded = useCallback((item: MediaItem) => {
     setItems((prev) => [item, ...prev.filter((p) => p.id !== item.id)]);
   }, []);
+
+  async function confirmDelete() {
+    if (!deletingItem) return;
+    const id = deletingItem.id;
+    setDeleteError(null);
+    try {
+      await deleteMedia(id);
+      setItems((prev) => prev.filter((p) => p.id !== id));
+      setDeletingItem(null);
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : 'Could not delete.');
+    }
+  }
 
   return (
     <section>
@@ -61,7 +78,29 @@ export function MediaScreen() {
         />
       )}
 
-      {!loading && !error && items.length > 0 && <MediaGrid items={items} />}
+      {!loading && !error && items.length > 0 && (
+        <MediaGrid items={items} onView={setViewing} onDelete={setDeletingItem} />
+      )}
+
+      {viewing && <MediaViewer item={viewing} onClose={() => setViewing(null)} />}
+
+      {deletingItem && (
+        <ConfirmModal
+          title="Delete media?"
+          message={
+            deleteError ??
+            'This removes the file from your Postiz media library. This cannot be undone.'
+          }
+          confirmLabel="Delete"
+          cancelLabel="Keep"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setDeletingItem(null);
+            setDeleteError(null);
+          }}
+        />
+      )}
     </section>
   );
 }

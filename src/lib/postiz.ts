@@ -47,11 +47,16 @@ export function getMedia(page = 1, search = ''): Promise<MediaListResponse> {
   return api.get<MediaListResponse>(`/api/media?${q.toString()}`);
 }
 
+export function deleteMedia(id: string): Promise<unknown> {
+  return api.del(`/api/media/${id}`);
+}
+
 // ----- Compose / schedule -----
 
 export interface PostContentInput {
   content: string; // HTML/text caption
   image: Pick<MediaItem, 'id' | 'path'>[];
+  id?: string; // existing Post row id — set ONLY when updating, to edit in place
 }
 
 export interface CreatePostChannel {
@@ -61,9 +66,45 @@ export interface CreatePostChannel {
 }
 
 export interface CreatePostInput {
-  type: 'draft' | 'schedule' | 'now';
+  type: 'draft' | 'schedule' | 'now' | 'update';
   dateISO: string; // UTC ISO
   channels: CreatePostChannel[];
+}
+
+/** Full data for editing an existing post (fetched from the private API). */
+export interface EditPostData {
+  postId: string; // the Post row id — becomes value[].id so the update edits in place
+  integrationId: string;
+  content: string; // HTML
+  image: { id: string; path: string }[];
+  settings: Record<string, unknown>;
+  publishDate: string; // ISO
+}
+
+export async function getPostForEdit(id: string): Promise<EditPostData> {
+  const raw = await api.get<{
+    group: string;
+    integration: string;
+    settings: Record<string, unknown>;
+    posts: {
+      id: string;
+      content: string;
+      publishDate: string;
+      integrationId: string;
+      settings?: string;
+      image?: { id: string; path: string }[];
+    }[];
+  }>(`/api/posts/${id}`);
+  const p = raw.posts?.[0];
+  if (!p) throw new Error('Post not found.');
+  return {
+    postId: p.id,
+    integrationId: raw.integration ?? p.integrationId,
+    content: p.content ?? '',
+    image: (p.image ?? []).map((m) => ({ id: m.id, path: m.path })),
+    settings: raw.settings ?? {},
+    publishDate: p.publishDate,
+  };
 }
 
 /** Build the exact body Postiz uses for both posts and Sets. */

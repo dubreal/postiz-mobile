@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   Image as ImageIcon,
@@ -15,8 +15,10 @@ import {
   saveSet,
   deleteSet,
   parseSetContent,
+  getPostForEdit,
   type CreatePostChannel,
   type PostizSet,
+  type EditPostData,
 } from '@/lib/postiz';
 import { useAsync } from '@/lib/useAsync';
 import {
@@ -25,9 +27,10 @@ import {
   providerLabel,
   type ProviderFieldSpec,
 } from '@/lib/providers';
-import { defaultScheduleLocal, localInputToUtcISO } from '@/lib/format';
-import { Button, ErrorState, Spinner, cx } from '@/components/ui';
+import { defaultScheduleLocal, localInputToUtcISO, stripHtml, toLocal } from '@/lib/format';
+import { Button, ConfirmModal, ErrorState, Spinner, cx } from '@/components/ui';
 import { MediaThumb } from '@/components/MediaGrid';
+import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
 import { MediaPicker } from '@/components/MediaPicker';
 import type { Integration, MediaItem } from '@/lib/types';
@@ -36,7 +39,12 @@ type FieldValues = Record<string, Record<string, string>>; // integrationId -> k
 
 export function ComposeScreen() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const editId = params.get('edit');
   const { data: channels, loading, error, reload } = useAsync(getIntegrations, []);
+
+  const [editData, setEditData] = useState<EditPostData | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(!!editId);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [caption, setCaption] = useState('');
@@ -50,6 +58,8 @@ export function ComposeScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [viewingMedia, setViewingMedia] = useState<MediaItem | null>(null);
   const [sets, setSets] = useState<PostizSet[]>([]);
   const [showSaveSet, setShowSaveSet] = useState(false);
   const [setName, setSetName] = useState('');
@@ -59,6 +69,35 @@ export function ComposeScreen() {
     () => (channels ?? []).filter((c) => selectedIds.has(c.id)),
     [channels, selectedIds],
   );
+
+  // Edit mode: load the existing post once channels are available, then prefill.
+  useEffect(() => {
+    if (!editId || !channels) return;
+    let alive = true;
+    setLoadingEdit(true);
+    getPostForEdit(editId)
+      .then((d) => {
+        if (!alive) return;
+        setEditData(d);
+        setSelectedIds(new Set([d.integrationId]));
+        setCaption(stripHtml(d.content, 100000));
+        setAttached(d.image.map((m) => ({ id: m.id, path: m.path, name: '' })));
+        const intg = channels.find((c) => c.id === d.integrationId);
+        const seeded = intg ? seedFields(intg.identifier) : {};
+        const strs: Record<string, string> = {};
+        for (const [k, v] of Object.entries(d.settings)) {
+          if (typeof v === 'string') strs[k] = v;
+        }
+        setFieldValues({ [d.integrationId]: { ...seeded, ...strs } });
+        setScheduleLocal(toLocal(d.publishDate).format('YYYY-MM-DDTHH:mm'));
+      })
+      .catch(() => alive && setFormError('Could not load the post to edit.'))
+      .finally(() => alive && setLoadingEdit(false));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, channels]);
 
   const loadSets = useCallback(async () => {
     try {
@@ -78,11 +117,18 @@ export function ComposeScreen() {
       active.map((intg) => ({
         integrationId: intg.id,
         value: [
-          { content: caption, image: attached.map((m) => ({ id: m.id, path: m.path })) },
+          {
+            content: caption,
+            image: attached.map((m) => ({ id: m.id, path: m.path })),
+            // In edit mode, carry the post row id so the update edits in place.
+            ...(editData && intg.id === editData.integrationId
+              ? { id: editData.postId }
+              : {}),
+          },
         ],
         settings: { ...defaultSettings(intg.identifier), ...fieldValues[intg.id] },
       })),
-    [active, caption, attached, fieldValues],
+    [active, caption, attached, fieldValues, editData],
   );
 
   function applySet(set: PostizSet) {
@@ -184,7 +230,7 @@ export function ComposeScreen() {
     setSubmitting(true);
     try {
       await createPost({
-        type: asDraft ? 'draft' : 'schedule',
+        type: editData ? 'update' : asDraft ? 'draft' : 'schedule',
         dateISO: localInputToUtcISO(scheduleLocal),
         channels: currentChannels(),
       });
@@ -198,7 +244,7 @@ export function ComposeScreen() {
     }
   }
 
-  if (loading) return <Spinner label="Loading channels" />;
+  if (loading || loadingEdit) return <Spinner label="Loading" />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
 
   if (done) {
@@ -206,7 +252,7 @@ export function ComposeScreen() {
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <CheckCircle size={48} weight="fill" className="text-[#5fbd8b]" />
         <p className="text-base font-semibold text-newTextColor">
-          {asDraft ? 'Saved as draft' : 'Post scheduled'}
+          {editData ? 'Post updated' : asDraft ? 'Saved as draft' : 'Post scheduled'}
         </p>
       </div>
     );
@@ -215,10 +261,13 @@ export function ComposeScreen() {
   return (
     <section className="flex flex-col gap-6">
       <header>
-        <h1 className="text-xl font-bold text-newTextColor">Compose</h1>
+        <h1 className="text-xl font-bold text-newTextColor">
+          {editData ? 'Edit post' : 'Compose'}
+        </h1>
       </header>
 
-      {/* Sets — saved channel + content templates */}
+      {/* Sets — saved channel + content templates (not shown while editing) */}
+      {!editData && (
       <div className="flex flex-col gap-2 rounded-[12px] border border-newBorder bg-newBgColorInner p-3">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-sm font-semibold text-newTextColor">
@@ -279,9 +328,10 @@ export function ComposeScreen() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Channels */}
-      <Field label="Channels">
+      {/* Channels — locked to the post's channel while editing */}
+      <Field label={editData ? 'Channel' : 'Channels'}>
         {(channels ?? []).length === 0 ? (
           <p className="text-sm text-newTableText">
             No channels connected in Postiz yet.
@@ -290,12 +340,13 @@ export function ComposeScreen() {
           <div className="flex flex-wrap gap-2">
             {(channels ?? []).map((intg) => {
               const on = selectedIds.has(intg.id);
+              if (editData && !on) return null; // in edit mode, show only the post's channel
               return (
                 <button
                   key={intg.id}
                   type="button"
-                  disabled={intg.disabled}
-                  onClick={() => toggleChannel(intg)}
+                  disabled={intg.disabled || !!editData}
+                  onClick={() => !editData && toggleChannel(intg)}
                   className={cx(
                     'flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3 text-sm font-medium transition-colors',
                     on
@@ -330,7 +381,14 @@ export function ComposeScreen() {
           <ul className="mb-3 grid grid-cols-4 gap-2">
             {attached.map((m) => (
               <li key={m.id} className="relative aspect-square overflow-hidden rounded-[10px] border border-newBorder">
-                <MediaThumb item={m} />
+                <button
+                  type="button"
+                  onClick={() => setViewingMedia(m)}
+                  aria-label="View media"
+                  className="h-full w-full"
+                >
+                  <MediaThumb item={m} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setAttached((prev) => prev.filter((x) => x.id !== m.id))}
@@ -393,15 +451,17 @@ export function ComposeScreen() {
           disabled={asDraft}
           className="w-full rounded-[10px] border border-newBorder bg-newBgColorInner p-3 text-[16px] text-newTextColor focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40 disabled:opacity-50"
         />
-        <label className="mt-2 flex items-center gap-2 text-sm text-newTableText">
-          <input
-            type="checkbox"
-            checked={asDraft}
-            onChange={(e) => setAsDraft(e.target.checked)}
-            className="h-4 w-4 accent-btnPrimary"
-          />
-          Save as draft instead of scheduling
-        </label>
+        {!editData && (
+          <label className="mt-2 flex items-center gap-2 text-sm text-newTableText">
+            <input
+              type="checkbox"
+              checked={asDraft}
+              onChange={(e) => setAsDraft(e.target.checked)}
+              className="h-4 w-4 accent-btnPrimary"
+            />
+            Save as draft instead of scheduling
+          </label>
+        )}
       </Field>
 
       {formError && (
@@ -410,9 +470,40 @@ export function ComposeScreen() {
         </p>
       )}
 
-      <Button onClick={submit} loading={submitting} className="w-full">
-        {asDraft ? 'Save draft' : 'Schedule post'}
-      </Button>
+      {editData ? (
+        <div className="flex gap-2">
+          <Button onClick={submit} loading={submitting} className="flex-1">
+            Update post
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmCancel(true)}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button onClick={submit} loading={submitting} className="w-full">
+          {asDraft ? 'Save draft' : 'Schedule post'}
+        </Button>
+      )}
+
+      {viewingMedia && (
+        <MediaViewer item={viewingMedia} onClose={() => setViewingMedia(null)} />
+      )}
+
+      {confirmCancel && (
+        <ConfirmModal
+          title="Discard changes?"
+          message="Your edits to this post will be lost."
+          confirmLabel="Discard"
+          cancelLabel="Keep editing"
+          danger
+          onConfirm={() => navigate('/')}
+          onCancel={() => setConfirmCancel(false)}
+        />
+      )}
     </section>
   );
 }

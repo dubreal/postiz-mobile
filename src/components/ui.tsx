@@ -96,4 +96,49 @@ export function ErrorState({
   );
 }
 
+export function ConfirmModal({
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  danger,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-6"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-xs rounded-2xl border border-newBorder bg-newBgColorInner p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="mb-1.5 text-base font-bold text-newTextColor">{title}</h2>
+        <p className="mb-5 text-sm text-newTableText">{message}</p>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onCancel} className="flex-1">
+            {cancelLabel}
+          </Button>
+          <Button
+            variant={danger ? 'danger' : 'primary'}
+            onClick={onConfirm}
+            className="flex-1"
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export { cx };

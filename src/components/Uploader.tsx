@@ -14,6 +14,18 @@ interface Progress {
 const MAX_VIDEO = 1024 * 1024 * 1024; // 1GB (Postiz limit)
 const MAX_IMAGE = 30 * 1024 * 1024; // 30MB (Postiz limit)
 
+// Android's picker often returns files with an empty MIME type, so detect by
+// extension as well, not just file.type.
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv|avi|3gp|hevc)$/i;
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|tiff?)$/i;
+
+function isVideoFile(f: File): boolean {
+  return f.type.startsWith('video/') || VIDEO_EXT.test(f.name);
+}
+function isImageFile(f: File): boolean {
+  return f.type.startsWith('image/') || IMAGE_EXT.test(f.name);
+}
+
 /** Read a video's pixel dimensions locally (works even for HEVC on this device). */
 function probeVideoSize(file: File): Promise<{ width: number; height: number } | null> {
   return new Promise((resolve) => {
@@ -94,8 +106,8 @@ export function Uploader({ onUploaded }: { onUploaded: (item: MediaItem) => void
     if (!files || !uppy) return;
 
     for (const file of Array.from(files)) {
-      const isVideo = file.type.startsWith('video/');
-      const isImage = file.type.startsWith('image/');
+      const isVideo = isVideoFile(file);
+      const isImage = isImageFile(file);
 
       // Enforce Postiz's size limits up front with a clear message.
       if (isVideo && file.size > MAX_VIDEO) {

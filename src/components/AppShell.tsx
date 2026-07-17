@@ -44,6 +44,16 @@ export function AppShell() {
 
       {/* Content column */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top header (desktop uses the sidebar brand) */}
+        <header
+          className="sticky top-0 z-30 flex items-center justify-center border-b border-newBorder bg-newBgColorInner/95 py-3 backdrop-blur md:hidden"
+          style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
+        >
+          <span className="text-[15px] font-extrabold tracking-tight">
+            <span className="text-newTextColor">Postiz</span>{' '}
+            <span className="text-btnPrimary">Mobile</span>
+          </span>
+        </header>
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-4 md:pb-10 md:pt-8">
           <Outlet />
         </main>

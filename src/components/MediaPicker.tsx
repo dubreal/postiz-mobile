@@ -3,6 +3,7 @@ import { getMedia } from '@/lib/postiz';
 import { Spinner, ErrorState } from './ui';
 import { Uploader } from './Uploader';
 import { MediaGrid } from './MediaGrid';
+import { MediaViewer } from './MediaViewer';
 import { ApiError } from '@/lib/api';
 import type { MediaItem } from '@/lib/types';
 
@@ -16,6 +17,7 @@ export function MediaPicker({
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<MediaItem | null>(null);
   const selectedIds = new Set(selected.map((s) => s.id));
 
   const load = useCallback(async () => {
@@ -66,9 +68,15 @@ export function MediaPicker({
       )}
       {!loading && !error && items.length > 0 && (
         <div className="max-h-72 overflow-y-auto rounded-[10px] border border-newBorder p-2">
-          <MediaGrid items={items} selectedIds={selectedIds} onToggle={toggle} />
+          <MediaGrid
+            items={items}
+            selectedIds={selectedIds}
+            onToggle={toggle}
+            onView={setViewing}
+          />
         </div>
       )}
+      {viewing && <MediaViewer item={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
