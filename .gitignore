@@ -1,0 +1,29 @@
+# Non-shipping dev material — planning docs, handoffs, postiz-app reference clone
+.planning/
+
+# Secrets & local config — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# TS build cache
+*.tsbuildinfo

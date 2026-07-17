@@ -1,0 +1,43 @@
+@use './postiz-colors.scss';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+  background: var(--new-bgColor);
+  color: rgb(var(--new-textColor));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* iOS safe-area padding for the bottom tab bar */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Respect reduced motion globally (skill 6.B). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Thin, theme-aware scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--new-sep) transparent;
+}

@@ -1,0 +1,52 @@
+# postiz-mobile reverse proxy + static host.
+# Serves the SPA and proxies /api and /uploads to the host's Postiz on the SAME
+# origin, so the browser's Postiz auth cookie flows through and no CORS is hit.
+#
+# Env (see .env.example):
+#   POSTIZ_UPSTREAM  - where Postiz is reachable from this container
+#   MEDIA_ORIGIN     - object-storage origin for direct uploads (cloudflare mode);
+#                      leave empty for local-disk storage
+#   LISTEN_PORT      - container port to listen on (default 8080)
+{
+	admin off
+	auto_https off
+}
+
+:{$LISTEN_PORT:8080} {
+	encode gzip zstd
+
+	# Cap request bodies generously so THIS proxy is never the upload bottleneck.
+	# (The host's outer proxy / tunnel imposes its own limit in local-storage mode.)
+	request_body {
+		max_size 2GB
+	}
+
+	# Pass auth through to Postiz. Same-origin means the browser sends the
+	# httpOnly `auth` cookie automatically; we forward it untouched.
+	handle /api/* {
+		reverse_proxy {$POSTIZ_UPSTREAM} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	handle /uploads/* {
+		reverse_proxy {$POSTIZ_UPSTREAM} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	# Static SPA with client-side routing fallback.
+	handle {
+		root * /srv
+		header {
+			Strict-Transport-Security "max-age=31536000; includeSubDomains"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			X-Frame-Options "DENY"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: {$MEDIA_ORIGIN}; media-src 'self' {$MEDIA_ORIGIN}; connect-src 'self' {$MEDIA_ORIGIN}; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+			-Server
+		}
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,0 +1,21 @@
+# postiz-mobile — drop-in mobile UI for a self-hosted Postiz.
+# Copy .env.example to .env, fill it in, then: docker compose up -d --build
+#
+# Serve this behind your reverse proxy / tunnel on a subdomain of the SAME
+# registrable domain as your Postiz (e.g. Postiz at postiz.example.com,
+# this at m.example.com). See README.md.
+
+services:
+  postiz-mobile:
+    build: .
+    image: postiz-mobile:latest
+    restart: unless-stopped
+    env_file: .env
+    # Bind to loopback only; your reverse proxy / tunnel fronts it.
+    ports:
+      - '127.0.0.1:${HOST_PORT:-4008}:8080'
+    # If Postiz runs on the Docker host (not in this compose network), reach it
+    # via host.docker.internal and keep this mapping. Remove if you point
+    # POSTIZ_UPSTREAM at a container on a shared network instead.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
