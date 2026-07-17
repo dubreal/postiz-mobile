@@ -170,6 +170,13 @@ Note: the same-registrable-domain cookie rule means auth only fully works when
 served from a sibling subdomain of your Postiz; local `npm run dev` can reach the
 API but the browser may not retain the cross-site cookie.
 
-## License
+## License & attribution
 
-MIT. See [LICENSE](./LICENSE).
+**AGPL-3.0.** See [LICENSE](./LICENSE).
+
+postiz-mobile is a companion for [Postiz](https://github.com/gitroomhq/postiz-app)
+and is built from it: the design tokens (`src/styles/postiz-colors.scss`,
+`tailwind.tokens.cjs`) are copied from Postiz, and the upload client
+(`src/lib/upload.ts`) is ported from Postiz's own uploader. Postiz is licensed
+AGPL-3.0, so this project is too. Not affiliated with or endorsed by Postiz /
+Gitroom.
