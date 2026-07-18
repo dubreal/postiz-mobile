@@ -14,6 +14,15 @@ It is a static app plus a thin reverse proxy.
 > with Postiz. It talks to Postiz's private HTTP API, which can change between
 > Postiz versions. It may not work on your setup. Read the
 > [Security](#security) section before deploying.
+>
+> **Tested on one configuration only.** postiz-mobile has been run and confirmed
+> working against **Postiz v2.21.9** with **Cloudflare R2** object storage, served
+> from a subdomain of the same registrable domain as the Postiz instance. It has
+> **not** been confirmed on other Postiz versions, other storage backends
+> (`local` disk, AWS S3, MinIO), or other domain layouts. It may work on yours,
+> but that is unverified. Please try it and
+> [open an issue](https://github.com/dubreal/postiz-mobile/issues) with your setup
+> and what happened. See [Project status](#project-status).
 
 ---
 
@@ -69,9 +78,34 @@ your Postiz.** For example:
 | `social.acme.io` | `mobile.acme.io` ✅ |
 | `postiz.example.com` | `example.net` ❌ (different domain — login cookie won't apply) |
 
-## Deploy
+## Prerequisites
 
-Requires Docker and a Postiz instance you administer.
+You need these before you start. The steps below assume a **typical Postiz
+v2.21.9 install** (the version this app is built and tested against) that is
+already up and running.
+
+- **A running self-hosted Postiz v2.21.9 that you administer.** Install it first
+  via the [official Postiz docs](https://docs.postiz.com) /
+  [Postiz repo](https://github.com/gitroomhq/postiz-app) and confirm you can log
+  in on the desktop. postiz-mobile does **not** install Postiz and does not work
+  without it. If your Postiz is a different version, expect to test and possibly
+  adjust (see [Compatibility](#compatibility)).
+- **Docker and Docker Compose** on the same host (or a host that can reach your
+  Postiz over the network).
+- **A reverse proxy or tunnel** you already use to expose services over HTTPS
+  (Cloudflare Tunnel, nginx, Traefik, Caddy, etc.). postiz-mobile binds to
+  loopback and expects to be fronted by this.
+- **A spare subdomain on the SAME registrable domain as your Postiz** (see
+  [Requirement: same registrable domain](#requirement-same-registrable-domain)).
+- **Know two things about your Postiz:**
+  1. Its `STORAGE_PROVIDER` (`local` or `cloudflare`) — check your Postiz `.env`.
+     Yours **must** match.
+  2. The address the app's container can reach Postiz at (host + port). In a
+     typical single-host Docker install, Postiz's frontend listens on the host
+     (often `:4000` or whatever you mapped), reachable from another container as
+     `http://host.docker.internal:<port>`.
+
+## Deploy
 
 1. **Get the code and configure**
    ```bash
@@ -79,13 +113,23 @@ Requires Docker and a Postiz instance you administer.
    cd postiz-mobile
    cp .env.example .env
    ```
-   Edit `.env`:
-   - `POSTIZ_UPSTREAM` — where Postiz is reachable from the container
-     (e.g. `http://host.docker.internal:4007` if Postiz is on the same host).
+   Edit `.env` (none of these are secrets):
+   - `POSTIZ_UPSTREAM` — where Postiz is reachable **from inside this container**.
+     For a Postiz on the same Docker host, use
+     `http://host.docker.internal:<postiz-port>` (the `extra_hosts` mapping in
+     `docker-compose.yml` makes `host.docker.internal` resolve on Linux). If your
+     Postiz runs as a container on a shared Docker network, point this at that
+     container name instead (e.g. `http://postiz:5000`) and see the comment in
+     `docker-compose.yml` about removing `extra_hosts`.
    - `STORAGE_PROVIDER` — **must match your Postiz** `STORAGE_PROVIDER`
      (`local` or `cloudflare`).
-   - `MEDIA_ORIGIN` — **only** if `cloudflare`: the public origin of your object
-     store (e.g. `https://media.example.com`). Leave empty for `local`.
+   - `MEDIA_ORIGIN` — **only** if `cloudflare`: the public READ origin of your
+     object store (e.g. `https://media.example.com`), so previews load. Leave
+     empty for `local`.
+   - `UPLOAD_ORIGIN` — **only** if `cloudflare`: the S3 API endpoint the browser
+     uploads to. For Cloudflare R2 keep the wildcard default; for AWS S3 use
+     `https://s3.<region>.amazonaws.com`; for MinIO your endpoint. Leave empty for
+     `local` (uploads then stream through the proxy — see [Security](#security)).
    - `HOST_PORT` — loopback port your reverse proxy forwards to (default `4008`).
 
 2. **Build and run**
@@ -131,6 +175,17 @@ Read this before you deploy. The trust model is stated plainly.
   until you change your Postiz password. Serve over HTTPS only, and sign out on
   shared devices. Sign-out clears the cookie server-side.
 - **Serve over HTTPS only.** The app assumes a secure context (uploads, cookies).
+- **No login rate-limiting is added here.** postiz-mobile does not throttle login
+  attempts, and Postiz's own brute-force protection is minimal with no 2FA. For a
+  publicly reachable deployment, put an authenticating or rate-limiting layer in
+  front of it (Cloudflare Access, fail2ban, or your reverse proxy's rate limits).
+- **`local` storage mode streams uploads through the proxy.** When
+  `STORAGE_PROVIDER=local`, media is uploaded via the Caddy proxy, which allows a
+  request body up to **2 GB**. A large or abusive upload consumes proxy/host
+  memory and bandwidth (a DoS surface on the operator). In `cloudflare` mode the
+  browser uploads **directly to your object store**, bypassing the proxy, so this
+  does not apply. If you run `local` mode on a public host, cap upload size at
+  your reverse proxy and/or restrict who can reach the app.
 - **No secrets live in this repo or image.** postiz-mobile holds no API keys and
   no credentials. `.env` contains only non-secret settings (URLs, a storage-mode
   flag) and is git-ignored.
@@ -167,6 +222,26 @@ Postiz version you have tested, and expect to update after major Postiz upgrades
 Per-provider compose settings are implemented for YouTube, TikTok, Instagram, and
 Discord. Other providers can be selected but may need fields this app does not yet
 expose; use the desktop for those.
+
+## Project status
+
+Early. Built for one operator's setup and shared so others can try it and report
+back.
+
+- **Confirmed working:** Postiz v2.21.9, Cloudflare R2 storage, served from a
+  sibling subdomain of the Postiz instance.
+- **Unverified:** other Postiz versions, `local` / AWS S3 / MinIO storage, and
+  other domain layouts. It is reasoned to work but not tested. Treat it as beta on
+  your setup.
+- **It will not modify or break your Postiz.** postiz-mobile is a separate
+  container that only calls Postiz's HTTP API with your own login — the same calls
+  the Postiz desktop makes. It never touches Postiz's database, files, containers,
+  or config. Every delete (post, media, set) is behind a confirmation, and nothing
+  destructive runs on its own. On an unsupported setup a call may simply fail and
+  show an error; your Postiz data is not at risk.
+- **Please report issues:** include your Postiz version, storage provider, how you
+  serve it (reverse proxy / tunnel + domain layout), and what broke.
+  [Open an issue](https://github.com/dubreal/postiz-mobile/issues).
 
 ## Development
 
