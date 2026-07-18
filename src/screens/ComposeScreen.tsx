@@ -33,7 +33,7 @@ import {
 } from '@/lib/providers';
 import { defaultScheduleLocal, localInputToUtcISO, stripHtml, toLocal } from '@/lib/format';
 import { getLastSetId, setLastSetId } from '@/lib/prefs';
-import { Button, ConfirmModal, ErrorState, Spinner, cx } from '@/components/ui';
+import { Button, ConfirmModal, ErrorState, Select, Spinner } from '@/components/ui';
 import { MediaThumb } from '@/components/MediaGrid';
 import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
@@ -444,10 +444,10 @@ export function ComposeScreen() {
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-newTextColor">Draft</span>
             <div className="flex gap-1.5">
-              <select
+              <Select
+                wrapperClassName="min-w-0 flex-1"
                 value={draftId}
                 onChange={(e) => requestSwitch('draft', e.target.value)}
-                className={cx(inputClass, 'min-w-0 flex-1')}
                 disabled={drafts.length === 0}
               >
                 <option value="">
@@ -458,7 +458,7 @@ export function ComposeScreen() {
                     {draftLabel(d)}
                   </option>
                 ))}
-              </select>
+              </Select>
               {draftId && (
                 <button
                   type="button"
@@ -474,27 +474,14 @@ export function ComposeScreen() {
 
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-newTextColor">Set</span>
-            {/* appearance-none + custom caret so a long set name fades out before
-                the arrow instead of colliding with it */}
-            <div className="relative">
-              <select
-                value={setId}
-                onChange={(e) => requestSwitch('set', e.target.value)}
-                className={cx(inputClass, 'appearance-none pr-10')}
-              >
-                <option value="">No Set</option>
-                {sets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute inset-y-px right-8 w-6 rounded-r-[10px] bg-gradient-to-r from-transparent to-newBgColorInner" />
-              <CaretDown
-                size={16}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-newTableText"
-              />
-            </div>
+            <Select value={setId} onChange={(e) => requestSwitch('set', e.target.value)}>
+              <option value="">No Set</option>
+              {sets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
           </label>
         </div>
       )}
@@ -720,10 +707,9 @@ export function ComposeScreen() {
             />
           </summary>
           <div className="flex flex-col gap-2 border-t border-newBorder p-3">
-            <select
+            <Select
               value={overrideSetId}
               onChange={(e) => setOverrideSetId(e.target.value)}
-              className={inputClass}
             >
               <option value="">New set…</option>
               {sets.map((s) => (
@@ -731,7 +717,7 @@ export function ComposeScreen() {
                   Override: {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
             {!overrideSetId && (
               <input
                 type="text"
@@ -893,13 +879,13 @@ function FieldInput({
         {spec.required && <span className="text-[#ff6b6b]"> *</span>}
       </span>
       {spec.type === 'select' ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={base}>
+        <Select bg="base" value={value} onChange={(e) => onChange(e.target.value)}>
           {spec.options?.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
         <input
           type="text"

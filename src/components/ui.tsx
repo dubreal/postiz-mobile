@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { CircleNotch, Warning } from '@phosphor-icons/react';
+import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import { CircleNotch, Warning, CaretDown } from '@phosphor-icons/react';
 
 function cx(...parts: (string | false | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
@@ -36,6 +36,46 @@ export function Button({
       {loading && <CircleNotch size={18} className="animate-spin" weight="bold" />}
       {children}
     </button>
+  );
+}
+
+type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+  // Which surface the select sits on, so the fade blends into the right color.
+  bg?: 'inner' | 'base';
+  wrapperClassName?: string;
+};
+
+/**
+ * Native select with a custom caret and a right-edge fade, so a long selected
+ * label fades out before the arrow instead of rendering behind it. Keeps the OS
+ * picker (appearance-none only removes the browser's own arrow).
+ */
+export function Select({ bg = 'inner', wrapperClassName, className, children, ...rest }: SelectProps) {
+  const surface = bg === 'base' ? 'bg-newBgColor' : 'bg-newBgColorInner';
+  const fade = bg === 'base' ? 'to-newBgColor' : 'to-newBgColorInner';
+  return (
+    <div className={cx('relative', wrapperClassName)}>
+      <select
+        className={cx(
+          'w-full appearance-none rounded-[10px] border border-newBorder p-2.5 pr-10 text-[16px] text-newTextColor focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40 disabled:opacity-50',
+          surface,
+          className,
+        )}
+        {...rest}
+      >
+        {children}
+      </select>
+      <span
+        className={cx(
+          'pointer-events-none absolute inset-y-px right-8 w-6 rounded-r-[10px] bg-gradient-to-r from-transparent',
+          fade,
+        )}
+      />
+      <CaretDown
+        size={16}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-newTableText"
+      />
+    </div>
   );
 }
 
