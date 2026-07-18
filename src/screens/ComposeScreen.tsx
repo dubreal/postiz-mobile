@@ -51,6 +51,10 @@ export function ComposeScreen() {
   const [attached, setAttached] = useState<MediaItem[]>([]);
   const [showMedia, setShowMedia] = useState(false);
   const [fieldValues, setFieldValues] = useState<FieldValues>({});
+  // Full per-channel settings from an applied Set or edited post, including
+  // non-string values (YouTube tags, booleans) the string-only field UI drops.
+  // Merged UNDER fieldValues at submit so live edits still win.
+  const [baseSettings, setBaseSettings] = useState<Record<string, Record<string, unknown>>>({});
   const [scheduleLocal, setScheduleLocal] = useState(defaultScheduleLocal());
   const [asDraft, setAsDraft] = useState(false);
 
@@ -89,6 +93,7 @@ export function ComposeScreen() {
           if (typeof v === 'string') strs[k] = v;
         }
         setFieldValues({ [d.integrationId]: { ...seeded, ...strs } });
+        setBaseSettings({ [d.integrationId]: d.settings });
         setScheduleLocal(toLocal(d.publishDate).format('YYYY-MM-DDTHH:mm'));
       })
       .catch(() => alive && setFormError('Could not load the post to edit.'))
@@ -126,16 +131,22 @@ export function ComposeScreen() {
               : {}),
           },
         ],
-        settings: { ...defaultSettings(intg.identifier), ...fieldValues[intg.id] },
+        settings: {
+          ...defaultSettings(intg.identifier),
+          ...(baseSettings[intg.id] ?? {}),
+          ...fieldValues[intg.id],
+        },
       })),
-    [active, caption, attached, fieldValues, editData],
+    [active, caption, attached, fieldValues, baseSettings, editData],
   );
 
   function applySet(set: PostizSet) {
     try {
       const p = parseSetContent(set.content);
       setSelectedIds(new Set(p.channelIds));
-      setCaption(p.caption);
+      // Desktop-saved Sets store the caption as HTML (<p>…</p>); flatten so the
+      // tags don't leak into the submitted description.
+      setCaption(stripHtml(p.caption, 100000));
       setAttached(p.media.map((m) => ({ id: m.id, path: m.path, name: '' })));
       const fv: FieldValues = {};
       for (const [id, settings] of Object.entries(p.settingsById)) {
@@ -148,6 +159,9 @@ export function ComposeScreen() {
         fv[id] = { ...seeded, ...strs };
       }
       setFieldValues(fv);
+      // Keep the full settings (tags, booleans, etc.) so every Set setting is
+      // applied on submit, not just the string fields the UI exposes.
+      setBaseSettings(p.settingsById);
       setFormError(null);
     } catch {
       setFormError('Could not load that set.');
