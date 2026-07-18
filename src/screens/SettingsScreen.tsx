@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Moon, Sun, SignOut, ShieldCheck } from '@phosphor-icons/react';
+import { Moon, Sun, SignOut, ShieldCheck, GithubLogo } from '@phosphor-icons/react';
 import { useAuth } from '@/auth/AuthContext';
 import { getConfig } from '@/lib/config';
 import { getTheme, setTheme, type Theme } from '@/lib/theme';
@@ -63,6 +63,16 @@ export function SettingsScreen() {
       <Button variant="danger" onClick={logout} className="justify-start">
         <SignOut size={18} weight="bold" /> Sign out
       </Button>
+
+      {/* AGPL-3.0 (§13): offer the running app's source to its users. */}
+      <a
+        href="https://github.com/dubreal/postiz-mobile"
+        target="_blank"
+        rel="noreferrer noopener"
+        className="mt-2 flex items-center justify-center gap-1.5 text-xs text-newTableText hover:text-newTextColor"
+      >
+        <GithubLogo size={14} weight="bold" /> Source code (AGPL-3.0)
+      </a>
     </section>
   );
 }
