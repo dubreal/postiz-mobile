@@ -38,6 +38,7 @@ import { MediaThumb } from '@/components/MediaGrid';
 import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
 import { MediaPicker } from '@/components/MediaPicker';
+import { ChannelPickerSheet } from '@/components/ChannelPickerSheet';
 import type { CalendarPost, Integration, MediaItem } from '@/lib/types';
 
 type FieldValues = Record<string, Record<string, string>>; // integrationId -> key -> value
@@ -82,6 +83,7 @@ export function ComposeScreen() {
   const [done, setDone] = useState(false);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [showChannels, setShowChannels] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<MediaItem | null>(null);
   const [sets, setSets] = useState<PostizSet[]>([]);
   const [drafts, setDrafts] = useState<CalendarPost[]>([]);
@@ -354,6 +356,17 @@ export function ComposeScreen() {
     });
   }
 
+  function selectAllChannels() {
+    (channels ?? []).forEach((intg) => {
+      if (!intg.disabled && !selectedIds.has(intg.id)) toggleChannel(intg);
+    });
+  }
+
+  function clearChannels() {
+    markDirty();
+    setSelectedIds(new Set());
+  }
+
   function setField(id: string, key: string, value: string) {
     markDirty();
     setFieldValues((fv) => ({ ...fv, [id]: { ...fv[id], [key]: value } }));
@@ -492,31 +505,45 @@ export function ComposeScreen() {
           <p className="text-sm text-newTableText">
             No channels connected in Postiz yet.
           </p>
-        ) : (
+        ) : editData ? (
           <div className="flex flex-wrap gap-2">
-            {(channels ?? []).map((intg) => {
-              const on = selectedIds.has(intg.id);
-              if (editData && !on) return null; // in edit mode, show only the post's channel
-              return (
-                <button
-                  key={intg.id}
-                  type="button"
-                  disabled={intg.disabled || !!editData}
-                  onClick={() => !editData && toggleChannel(intg)}
-                  className={cx(
-                    'flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3 text-sm font-medium transition-colors',
-                    on
-                      ? 'border-btnPrimary bg-btnPrimary/15 text-btnPrimary'
-                      : 'border-newBorder text-newTableText hover:bg-boxHover',
-                    intg.disabled && 'opacity-40',
-                  )}
-                >
-                  <Avatar picture={intg.picture} identifier={intg.identifier} size={22} />
-                  {intg.name}
-                </button>
-              );
-            })}
+            {active.map((intg) => (
+              <span
+                key={intg.id}
+                className="flex items-center gap-2 rounded-full border border-btnPrimary bg-btnPrimary/15 py-1.5 pl-1.5 pr-3 text-sm font-medium text-btnPrimary"
+              >
+                <Avatar picture={intg.picture} identifier={intg.identifier} size={22} />
+                {intg.name}
+              </span>
+            ))}
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowChannels(true)}
+            className="flex w-full items-center gap-3 rounded-[10px] border border-newBorder bg-newBgColorInner p-3 text-left"
+          >
+            {active.length === 0 ? (
+              <span className="flex-1 text-sm text-newTableText">Select channels</span>
+            ) : (
+              <>
+                <span className="flex -space-x-2">
+                  {active.slice(0, 5).map((intg) => (
+                    <Avatar
+                      key={intg.id}
+                      picture={intg.picture}
+                      identifier={intg.identifier}
+                      size={26}
+                    />
+                  ))}
+                </span>
+                <span className="flex-1 text-sm font-medium text-newTextColor">
+                  {active.length} selected
+                </span>
+              </>
+            )}
+            <CaretDown size={16} className="shrink-0 text-newTableText" />
+          </button>
         )}
       </Field>
 
@@ -760,6 +787,17 @@ export function ComposeScreen() {
           Cancel
         </Button>
       </div>
+
+      {showChannels && (
+        <ChannelPickerSheet
+          channels={channels ?? []}
+          selected={selectedIds}
+          onToggle={toggleChannel}
+          onSelectAll={selectAllChannels}
+          onClear={clearChannels}
+          onClose={() => setShowChannels(false)}
+        />
+      )}
 
       {viewingMedia && (
         <MediaViewer item={viewingMedia} onClose={() => setViewingMedia(null)} />
