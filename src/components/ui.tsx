@@ -6,7 +6,7 @@ function cx(...parts: (string | false | undefined)[]): string {
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'ghost' | 'danger' | 'now';
   loading?: boolean;
 };
 
@@ -24,6 +24,8 @@ export function Button({
     primary: 'bg-btnPrimary text-white hover:brightness-110',
     ghost: 'bg-btnSimple text-newTextColor hover:bg-boxHover',
     danger: 'bg-transparent text-[#ff6b6b] hover:bg-[#ff6b6b]/10',
+    // Immediate publish — matches the distinct Post Now color in Postiz desktop.
+    now: 'bg-[#D82D7E] text-white hover:brightness-110',
   } as const;
   return (
     <button

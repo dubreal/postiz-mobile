@@ -45,6 +45,13 @@ type FieldValues = Record<string, Record<string, string>>; // integrationId -> k
 const inputClass =
   'w-full rounded-[10px] border border-newBorder bg-newBgColorInner p-2.5 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40';
 
+/** True if the channel has any required field that is still empty. */
+function requiredUnset(identifier: string, vals: Record<string, string> = {}): boolean {
+  return (PROVIDER_FIELDS[identifier] ?? []).some(
+    (f) => f.required && !(vals[f.key] ?? '').trim(),
+  );
+}
+
 export function ComposeScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -65,6 +72,10 @@ export function ComposeScreen() {
   const [baseSettings, setBaseSettings] = useState<Record<string, Record<string, unknown>>>({});
   const [scheduleLocal, setScheduleLocal] = useState(defaultScheduleLocal());
   const [asDraft, setAsDraft] = useState(false);
+  const [postNow, setPostNow] = useState(false);
+  // Which channel-option cards are expanded. Cards with a required-but-unset
+  // field are auto-expanded so the user cannot miss a mandatory choice.
+  const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -105,10 +116,12 @@ export function ComposeScreen() {
         setCaption(stripHtml(d.content, 100000));
         setAttached(d.image.map((m) => ({ id: m.id, path: m.path, name: '' })));
         const intg = channels.find((c) => c.id === d.integrationId);
-        setFieldValues({
-          [d.integrationId]: intg ? settingsToFields(intg.identifier, d.settings) : {},
-        });
+        const vals = intg ? settingsToFields(intg.identifier, d.settings) : {};
+        setFieldValues({ [d.integrationId]: vals });
         setBaseSettings({ [d.integrationId]: d.settings });
+        setOpenCards({
+          [d.integrationId]: intg ? requiredUnset(intg.identifier, vals) : false,
+        });
         setScheduleLocal(toLocal(d.publishDate).format('YYYY-MM-DDTHH:mm'));
       })
       .catch(() => alive && setFormError('Could not load the post to edit.'))
@@ -155,12 +168,15 @@ export function ComposeScreen() {
         setCaption(stripHtml(p.caption, 100000));
         setAttached(p.media.map((m) => ({ id: m.id, path: m.path, name: '' })));
         const fv: FieldValues = {};
-        for (const [id, settings] of Object.entries(p.settingsById)) {
+        const oc: Record<string, boolean> = {};
+        for (const id of p.channelIds) {
           const intg = (channels ?? []).find((c) => c.id === id);
-          fv[id] = intg ? settingsToFields(intg.identifier, settings) : {};
+          fv[id] = intg ? settingsToFields(intg.identifier, p.settingsById[id]) : {};
+          oc[id] = intg ? requiredUnset(intg.identifier, fv[id]) : false;
         }
         setFieldValues(fv);
         setBaseSettings(p.settingsById);
+        setOpenCards(oc);
         setFormError(null);
       } catch {
         setFormError('Could not load that set.');
@@ -177,10 +193,12 @@ export function ComposeScreen() {
         setCaption(stripHtml(d.content, 100000));
         setAttached(d.image.map((m) => ({ id: m.id, path: m.path, name: '' })));
         const intg = (channels ?? []).find((c) => c.id === d.integrationId);
-        setFieldValues({
-          [d.integrationId]: intg ? settingsToFields(intg.identifier, d.settings) : {},
-        });
+        const vals = intg ? settingsToFields(intg.identifier, d.settings) : {};
+        setFieldValues({ [d.integrationId]: vals });
         setBaseSettings({ [d.integrationId]: d.settings });
+        setOpenCards({
+          [d.integrationId]: intg ? requiredUnset(intg.identifier, vals) : false,
+        });
         setScheduleLocal(toLocal(d.publishDate).format('YYYY-MM-DDTHH:mm'));
         setFormError(null);
       } catch {
@@ -233,6 +251,7 @@ export function ComposeScreen() {
     setAttached([]);
     setFieldValues({});
     setBaseSettings({});
+    setOpenCards({});
     setScheduleLocal(defaultScheduleLocal());
     setFormError(null);
   }
@@ -320,9 +339,15 @@ export function ComposeScreen() {
       else {
         next.add(intg.id);
         // seed default field values so selects/toggles are valid up-front
+        const seeded = settingsToFields(intg.identifier);
         setFieldValues((fv) => ({
           ...fv,
-          [intg.id]: { ...settingsToFields(intg.identifier), ...fv[intg.id] },
+          [intg.id]: { ...seeded, ...fv[intg.id] },
+        }));
+        // auto-expand a newly added channel if it needs a required choice
+        setOpenCards((oc) => ({
+          ...oc,
+          [intg.id]: requiredUnset(intg.identifier, seeded),
         }));
       }
       return next;
@@ -358,7 +383,7 @@ export function ComposeScreen() {
     setSubmitting(true);
     try {
       await createPost({
-        type: editData ? 'update' : asDraft ? 'draft' : 'schedule',
+        type: editData ? 'update' : postNow ? 'now' : asDraft ? 'draft' : 'schedule',
         dateISO: localInputToUtcISO(scheduleLocal),
         channels: currentChannels(),
       });
@@ -380,7 +405,13 @@ export function ComposeScreen() {
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <CheckCircle size={48} weight="fill" className="text-[#5fbd8b]" />
         <p className="text-base font-semibold text-newTextColor">
-          {editData ? 'Post updated' : asDraft ? 'Saved as draft' : 'Post scheduled'}
+          {editData
+            ? 'Post updated'
+            : postNow
+              ? 'Post published'
+              : asDraft
+                ? 'Saved as draft'
+                : 'Post scheduled'}
         </p>
       </div>
     );
@@ -547,6 +578,13 @@ export function ComposeScreen() {
               return (
                 <details
                   key={intg.id}
+                  open={!!openCards[intg.id]}
+                  onToggle={(e) =>
+                    setOpenCards((oc) => ({
+                      ...oc,
+                      [intg.id]: (e.target as HTMLDetailsElement).open,
+                    }))
+                  }
                   className="group overflow-hidden rounded-[10px] border border-newBorder bg-newBgColorInner"
                 >
                   <summary className="flex cursor-pointer list-none items-center gap-2.5 p-3 [&::-webkit-details-marker]:hidden">
@@ -596,22 +634,38 @@ export function ComposeScreen() {
             setScheduleLocal(e.target.value);
             markDirty();
           }}
-          disabled={asDraft}
+          disabled={asDraft || postNow}
           className="w-full rounded-[10px] border border-newBorder bg-newBgColorInner p-3 text-[16px] text-newTextColor focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40 disabled:opacity-50"
         />
         {!editData && (
-          <label className="mt-2 flex items-center gap-2 text-sm text-newTableText">
-            <input
-              type="checkbox"
-              checked={asDraft}
-              onChange={(e) => {
-                setAsDraft(e.target.checked);
-                markDirty();
-              }}
-              className="h-4 w-4 accent-btnPrimary"
-            />
-            Save as draft instead of scheduling
-          </label>
+          <div className="mt-2 flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-newTableText">
+              <input
+                type="checkbox"
+                checked={asDraft}
+                onChange={(e) => {
+                  setAsDraft(e.target.checked);
+                  if (e.target.checked) setPostNow(false);
+                  markDirty();
+                }}
+                className="h-4 w-4 accent-btnPrimary"
+              />
+              Save as draft instead of scheduling
+            </label>
+            <label className="flex items-center gap-2 text-sm text-newTableText">
+              <input
+                type="checkbox"
+                checked={postNow}
+                onChange={(e) => {
+                  setPostNow(e.target.checked);
+                  if (e.target.checked) setAsDraft(false);
+                  markDirty();
+                }}
+                className="h-4 w-4 accent-[#D82D7E]"
+              />
+              Post immediately
+            </label>
+          </div>
         )}
       </Field>
 
@@ -671,8 +725,19 @@ export function ComposeScreen() {
       )}
 
       <div className="flex gap-2">
-        <Button onClick={submit} loading={submitting} className="flex-1">
-          {editData ? 'Update post' : asDraft ? 'Save draft' : 'Schedule post'}
+        <Button
+          onClick={submit}
+          loading={submitting}
+          variant={!editData && postNow ? 'now' : 'primary'}
+          className="flex-1"
+        >
+          {editData
+            ? 'Update post'
+            : postNow
+              ? 'Post now'
+              : asDraft
+                ? 'Save draft'
+                : 'Schedule post'}
         </Button>
         <Button
           variant="ghost"
