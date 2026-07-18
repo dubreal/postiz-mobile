@@ -160,6 +160,19 @@ export function saveSet(name: string, input: CreatePostInput): Promise<unknown> 
   return api.post('/api/sets', { name, content: JSON.stringify(buildPostBody(input)) });
 }
 
+/** Content for an empty Set (parses cleanly, applies as a blank compose). */
+export const BLANK_SET_CONTENT = JSON.stringify({ posts: [] });
+
+/** Create a Set from raw content (blank, or a copy of another Set). */
+export function createRawSet(name: string, content: string): Promise<unknown> {
+  return api.post('/api/sets', { name, content });
+}
+
+/** Rename / update a Set in place (PUT upserts by id in Postiz). */
+export function updateSet(id: string, name: string, content: string): Promise<unknown> {
+  return api.put('/api/sets', { id, name, content });
+}
+
 export function deleteSet(id: string): Promise<unknown> {
   return api.del(`/api/sets/${id}`);
 }

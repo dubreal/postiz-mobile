@@ -461,18 +461,27 @@ export function ComposeScreen() {
 
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-newTextColor">Set</span>
-            <select
-              value={setId}
-              onChange={(e) => requestSwitch('set', e.target.value)}
-              className={inputClass}
-            >
-              <option value="">No Set</option>
-              {sets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            {/* appearance-none + custom caret so a long set name fades out before
+                the arrow instead of colliding with it */}
+            <div className="relative">
+              <select
+                value={setId}
+                onChange={(e) => requestSwitch('set', e.target.value)}
+                className={cx(inputClass, 'appearance-none pr-10')}
+              >
+                <option value="">No Set</option>
+                {sets.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-px right-8 w-6 rounded-r-[10px] bg-gradient-to-r from-transparent to-newBgColorInner" />
+              <CaretDown
+                size={16}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-newTableText"
+              />
+            </div>
           </label>
         </div>
       )}
@@ -674,10 +683,14 @@ export function ComposeScreen() {
         <details
           open={showSaveSet}
           onToggle={(e) => setShowSaveSet((e.target as HTMLDetailsElement).open)}
-          className="overflow-hidden rounded-[12px] border border-newBorder bg-newBgColorInner"
+          className="group overflow-hidden rounded-[12px] border border-newBorder bg-newBgColorInner"
         >
           <summary className="flex cursor-pointer list-none items-center gap-1.5 p-3 text-sm font-semibold text-newTextColor [&::-webkit-details-marker]:hidden">
             <FloppyDisk size={16} weight="bold" /> Save as set
+            <CaretDown
+              size={16}
+              className="ml-auto text-newTableText transition-transform group-open:rotate-180"
+            />
           </summary>
           <div className="flex flex-col gap-2 border-t border-newBorder p-3">
             <select

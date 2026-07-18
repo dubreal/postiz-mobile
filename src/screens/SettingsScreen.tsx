@@ -4,6 +4,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { getConfig } from '@/lib/config';
 import { getTheme, setTheme, type Theme } from '@/lib/theme';
 import { Button, cx } from '@/components/ui';
+import { SetsManager } from '@/components/SetsManager';
 
 export function SettingsScreen() {
   const { user, logout } = useAuth();
@@ -46,6 +47,10 @@ export function SettingsScreen() {
         label="Media storage"
         value={storage === 'cloudflare' ? 'Object storage (S3-compatible)' : 'Local disk'}
       />
+
+      <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
+        <SetsManager />
+      </div>
 
       <div className="flex items-start gap-3 rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <ShieldCheck size={20} className="mt-0.5 shrink-0 text-btnPrimary" />
