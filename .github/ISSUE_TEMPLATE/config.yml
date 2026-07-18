@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/dubreal/postiz-mobile/security/advisories/new
+    about: Report security issues privately, not as a public issue. See SECURITY.md.
+  - name: Postiz (upstream) issues
+    url: https://github.com/gitroomhq/postiz-app/issues
+    about: Bugs in Postiz itself belong in the Postiz project, not here.

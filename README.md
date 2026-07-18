@@ -26,6 +26,24 @@ It is a static app plus a thin reverse proxy.
 
 ---
 
+## Screenshots
+
+<p>
+  <img src="docs/screenshots/calendar-month.jpg" alt="Calendar, month view: a dot-grid month with the selected day's posts listed below, each with a platform badge and status" width="32%" />
+  <img src="docs/screenshots/calendar-list.jpg" alt="Calendar, list view: posts across a date range grouped by day with published/scheduled status badges" width="32%" />
+  <img src="docs/screenshots/compose.jpg" alt="Compose: draft and set pickers, a channel picker showing '2 selected', caption, media, and channel option cards" width="32%" />
+  <img src="docs/screenshots/compose-media.jpg" alt="Compose media picker: attached media with a remove control, an upload button, and a grid of library media to select" width="32%" />
+  <img src="docs/screenshots/channel-options.jpg" alt="Channel option cards: Instagram post type and collaborators, YouTube title, visibility, audience (made-for-kids), and tags" width="32%" />
+  <img src="docs/screenshots/schedule.jpg" alt="Compose scheduling: date/time, save-as-draft and post-immediately options, and Schedule post / Cancel" width="32%" />
+  <img src="docs/screenshots/save-as-set.jpg" alt="Save as set: choose a new set or override an existing one, name it, and save or cancel" width="32%" />
+  <img src="docs/screenshots/media.jpg" alt="Media library: upload button and a grid of uploaded videos with delete controls" width="32%" />
+  <img src="docs/screenshots/settings.jpg" alt="Settings: account, appearance, media storage, and a Sets manager to add, rename, duplicate, and delete sets" width="32%" />
+</p>
+
+_Calendar (month and list); Compose with the channel picker, media picker, per-channel options, scheduling, and save-as-set; the Media library; and Settings with the Sets manager._
+
+---
+
 ## What it does
 
 - **Log in** with your existing Postiz account (email + password).

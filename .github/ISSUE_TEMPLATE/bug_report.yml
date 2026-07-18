@@ -1,0 +1,74 @@
+name: Bug report
+description: Something in postiz-mobile does not work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. postiz-mobile has only been tested against
+        **Postiz v2.21.9 with Cloudflare R2 storage** on a sibling subdomain, so
+        setup details are essential to reproduce anything.
+
+        **Do not report security issues here** — see
+        [SECURITY.md](https://github.com/dubreal/postiz-mobile/blob/main/SECURITY.md)
+        for private reporting.
+        For bugs in **Postiz itself**, use the
+        [Postiz repo](https://github.com/gitroomhq/postiz-app).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What went wrong, and what you expected instead.
+      placeholder: I tapped X, expected Y, got Z.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Tap ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: postiz-version
+    attributes:
+      label: Postiz version
+      placeholder: "e.g. v2.21.9"
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage provider (must match your Postiz)
+      options:
+        - cloudflare (R2 / S3-compatible)
+        - local (disk)
+        - other (AWS S3, MinIO, ...)
+    validations:
+      required: true
+  - type: input
+    id: serving
+    attributes:
+      label: How you serve it
+      description: Reverse proxy / tunnel and the domain layout (Postiz host vs postiz-mobile host).
+      placeholder: "e.g. Cloudflare Tunnel; postiz.example.com + m.example.com"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device / browser
+      placeholder: "e.g. iPhone 15, Safari 17; or Pixel 8, Chrome 126"
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console / network errors (optional)
+      description: Any errors from the browser dev tools or the container logs. Redact anything sensitive.
+      render: text
+    validations:
+      required: false
