@@ -21,7 +21,18 @@ It is a static app plus a thin reverse proxy.
 
 - **Log in** with your existing Postiz account (email + password).
 - **Calendar** — see scheduled, published, draft, and failed posts grouped by day.
-- **Compose** — pick channels, write a caption, attach media, schedule or save a draft.
+- **Compose** — pick channels from a searchable picker, write a caption, attach
+  media, set per-channel options, then schedule, save a draft, or post
+  immediately.
+  - **Per-channel options** mirror the Postiz desktop panels: YouTube title,
+    visibility, **audience (made-for-kids)**, and tags; TikTok privacy, posting
+    method, and interaction toggles; Instagram post type and collaborators;
+    Discord channel. Cards with a required-but-unset field auto-expand.
+  - **Post now** publishes immediately (distinct button color); the post still
+    lands in the calendar.
+  - **Sets** — apply a saved Set, save the current post as a new Set, or override
+    an existing one. **Drafts** — load a saved draft to continue, or delete it.
+- **Sets management** (Settings) — add, rename, duplicate, and delete Sets.
 - **Media** — browse your Postiz media library and upload photos/videos from your phone.
 
 It does not reimplement Postiz features it does not need. Anything not listed
