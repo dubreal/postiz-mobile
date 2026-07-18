@@ -1,5 +1,10 @@
 # postiz-mobile
 
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![Built for Postiz](https://img.shields.io/badge/built%20for-Postiz-966fd6.svg)](https://github.com/gitroomhq/postiz-app)
+[![Tested on Postiz v2.21.9](https://img.shields.io/badge/tested%20on-Postiz%20v2.21.9-informational.svg)](https://github.com/gitroomhq/postiz-app/releases/tag/v2.21.9)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A **mobile-first web interface for a self-hosted [Postiz](https://github.com/gitroomhq/postiz-app)**.
 Postiz has no mobile app and its desktop UI is not responsive
 ([#740](https://github.com/gitroomhq/postiz-app/issues/740),
