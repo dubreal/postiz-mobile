@@ -52,8 +52,8 @@ _Calendar (month and list); Compose with the channel picker, media picker, per-c
 ## What it does
 
 - **Log in** with your existing Postiz account (email + password).
-- **Calendar** — see scheduled, published, draft, and failed posts grouped by day.
-- **Compose** — pick channels from a searchable picker, write a caption, attach
+- **Calendar** - see scheduled, published, draft, and failed posts grouped by day.
+- **Compose** - pick channels from a searchable picker, write a caption, attach
   media, set per-channel options, then schedule, save a draft, or post
   immediately.
   - **Per-channel options** mirror the Postiz desktop panels: YouTube title,
@@ -62,10 +62,10 @@ _Calendar (month and list); Compose with the channel picker, media picker, per-c
     Discord channel. Cards with a required-but-unset field auto-expand.
   - **Post now** publishes immediately (distinct button color); the post still
     lands in the calendar.
-  - **Sets** — apply a saved Set, save the current post as a new Set, or override
-    an existing one. **Drafts** — load a saved draft to continue, or delete it.
-- **Sets management** (Settings) — add, rename, duplicate, and delete Sets.
-- **Media** — browse your Postiz media library and upload photos/videos from your phone.
+  - **Sets** - apply a saved Set, save the current post as a new Set, or override
+    an existing one. **Drafts** - load a saved draft to continue, or delete it.
+- **Sets management** (Settings) - add, rename, duplicate, and delete Sets.
+- **Media** - browse your Postiz media library and upload photos/videos from your phone.
 
 It does not reimplement Postiz features it does not need. Anything not listed
 above, do on the desktop.
@@ -99,7 +99,7 @@ your Postiz.** For example:
 |---|---|
 | `postiz.example.com` | `m.example.com` ✅ |
 | `social.acme.io` | `mobile.acme.io` ✅ |
-| `postiz.example.com` | `example.net` ❌ (different domain — login cookie won't apply) |
+| `postiz.example.com` | `example.net` ❌ (different domain - login cookie won't apply) |
 
 ## Prerequisites
 
@@ -121,7 +121,7 @@ already up and running.
 - **A spare subdomain on the SAME registrable domain as your Postiz** (see
   [Requirement: same registrable domain](#requirement-same-registrable-domain)).
 - **Know two things about your Postiz:**
-  1. Its `STORAGE_PROVIDER` (`local` or `cloudflare`) — check your Postiz `.env`.
+  1. Its `STORAGE_PROVIDER` (`local` or `cloudflare`) - check your Postiz `.env`.
      Yours **must** match.
   2. The address the app's container can reach Postiz at (host + port). In a
      typical single-host Docker install, Postiz's frontend listens on the host
@@ -137,23 +137,23 @@ already up and running.
    cp .env.example .env
    ```
    Edit `.env` (none of these are secrets):
-   - `POSTIZ_UPSTREAM` — where Postiz is reachable **from inside this container**.
+   - `POSTIZ_UPSTREAM` - where Postiz is reachable **from inside this container**.
      For a Postiz on the same Docker host, use
      `http://host.docker.internal:<postiz-port>` (the `extra_hosts` mapping in
      `docker-compose.yml` makes `host.docker.internal` resolve on Linux). If your
      Postiz runs as a container on a shared Docker network, point this at that
      container name instead (e.g. `http://postiz:5000`) and see the comment in
      `docker-compose.yml` about removing `extra_hosts`.
-   - `STORAGE_PROVIDER` — **must match your Postiz** `STORAGE_PROVIDER`
+   - `STORAGE_PROVIDER` - **must match your Postiz** `STORAGE_PROVIDER`
      (`local` or `cloudflare`).
-   - `MEDIA_ORIGIN` — **only** if `cloudflare`: the public READ origin of your
+   - `MEDIA_ORIGIN` - **only** if `cloudflare`: the public READ origin of your
      object store (e.g. `https://media.example.com`), so previews load. Leave
      empty for `local`.
-   - `UPLOAD_ORIGIN` — **only** if `cloudflare`: the S3 API endpoint the browser
+   - `UPLOAD_ORIGIN` - **only** if `cloudflare`: the S3 API endpoint the browser
      uploads to. For Cloudflare R2 keep the wildcard default; for AWS S3 use
      `https://s3.<region>.amazonaws.com`; for MinIO your endpoint. Leave empty for
-     `local` (uploads then stream through the proxy — see [Security](#security)).
-   - `HOST_PORT` — loopback port your reverse proxy forwards to (default `4008`).
+     `local` (uploads then stream through the proxy - see [Security](#security)).
+   - `HOST_PORT` - loopback port your reverse proxy forwards to (default `4008`).
 
 2. **Build and run**
    ```bash
@@ -190,7 +190,7 @@ Read this before you deploy. The trust model is stated plainly.
 - **The proxy sees login traffic in transit.** Like any reverse proxy in front of
   any login (including Postiz's own), the Caddy process passes the request bytes
   through while forwarding them to Postiz. It does not parse, log, or store them.
-  **Run postiz-mobile on infrastructure you control** — it sits in the auth path.
+  **Run postiz-mobile on infrastructure you control** - it sits in the auth path.
 - **Postiz has no two-factor auth.** Login is single-factor, the same as the
   Postiz desktop. If you want a second factor, put an authenticating proxy
   (e.g. Cloudflare Access) in front of `m.example.com`.
@@ -257,7 +257,7 @@ back.
   other domain layouts. It is reasoned to work but not tested. Treat it as beta on
   your setup.
 - **It will not modify or break your Postiz.** postiz-mobile is a separate
-  container that only calls Postiz's HTTP API with your own login — the same calls
+  container that only calls Postiz's HTTP API with your own login - the same calls
   the Postiz desktop makes. It never touches Postiz's database, files, containers,
   or config. Every delete (post, media, set) is behind a confirmation, and nothing
   destructive runs on its own. On an unsupported setup a call may simply fail and

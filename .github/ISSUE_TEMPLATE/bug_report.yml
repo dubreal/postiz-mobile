@@ -9,7 +9,7 @@ body:
         **Postiz v2.21.9 with Cloudflare R2 storage** on a sibling subdomain, so
         setup details are essential to reproduce anything.
 
-        **Do not report security issues here** — see
+        **Do not report security issues here** - see
         [SECURITY.md](https://github.com/dubreal/postiz-mobile/blob/main/SECURITY.md)
         for private reporting.
         For bugs in **Postiz itself**, use the

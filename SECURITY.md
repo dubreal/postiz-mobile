@@ -15,7 +15,7 @@ Report privately via GitHub's private vulnerability reporting:
 3. Describe the issue with enough detail to reproduce.
 
 If private reporting is unavailable to you, open a regular issue that says only
-"security report, please enable a private channel" — with **no details** — and
+"security report, please enable a private channel" - with **no details** - and
 you'll be contacted to move it private.
 
 Please include, where relevant:
@@ -35,7 +35,7 @@ In scope:
 
 Out of scope:
 
-- Vulnerabilities in **Postiz itself** — report those to the
+- Vulnerabilities in **Postiz itself** - report those to the
   [Postiz project](https://github.com/gitroomhq/postiz-app).
 - Issues that require a misconfigured or hostile deployment the operator controls
   (e.g. serving over plain HTTP, exposing the loopback port directly, or pointing
