@@ -15,6 +15,7 @@ import {
   getDrafts,
   saveSet,
   deleteSet,
+  deletePost,
   parseSetContent,
   getPostForEdit,
   type CreatePostChannel,
@@ -58,9 +59,9 @@ export function ComposeScreen() {
   const [attached, setAttached] = useState<MediaItem[]>([]);
   const [showMedia, setShowMedia] = useState(false);
   const [fieldValues, setFieldValues] = useState<FieldValues>({});
-  // Full per-channel settings from an applied Set or edited post, including
-  // non-string values (YouTube tags, booleans) the field UI edits as strings.
-  // Merged UNDER the coerced field values at submit so live edits still win.
+  // Full per-channel settings from an applied Set, loaded draft, or edited post,
+  // including values the field UI does not expose (thumbnail, audio). Merged
+  // UNDER the coerced field values at submit so live edits still win.
   const [baseSettings, setBaseSettings] = useState<Record<string, Record<string, unknown>>>({});
   const [scheduleLocal, setScheduleLocal] = useState(defaultScheduleLocal());
   const [asDraft, setAsDraft] = useState(false);
@@ -74,10 +75,17 @@ export function ComposeScreen() {
   const [sets, setSets] = useState<PostizSet[]>([]);
   const [drafts, setDrafts] = useState<CalendarPost[]>([]);
   const [setId, setSetId] = useState('');
+  const [draftId, setDraftId] = useState('');
   const [showSaveSet, setShowSaveSet] = useState(false);
   const [saveSetName, setSaveSetName] = useState('');
   const [overrideSetId, setOverrideSetId] = useState('');
   const [savingSet, setSavingSet] = useState(false);
+
+  // Unsaved-changes tracking, so switching Set/draft warns before discarding.
+  const [dirty, setDirty] = useState(false);
+  const [pendingSwitch, setPendingSwitch] = useState<{ kind: 'set' | 'draft'; id: string } | null>(null);
+  const [confirmDeleteDraft, setConfirmDeleteDraft] = useState(false);
+  const markDirty = () => setDirty(true);
 
   const active = useMemo(
     () => (channels ?? []).filter((c) => selectedIds.has(c.id)),
@@ -124,14 +132,18 @@ export function ComposeScreen() {
   }, [loadSets]);
 
   // Saved drafts, offered as a quick-load dropdown (not while editing one).
+  const loadDrafts = useCallback(async () => {
+    try {
+      setDrafts(await getDrafts());
+    } catch {
+      /* drafts are optional */
+    }
+  }, []);
+
   useEffect(() => {
     if (editId) return;
-    getDrafts()
-      .then(setDrafts)
-      .catch(() => {
-        /* drafts are optional */
-      });
-  }, [editId]);
+    void loadDrafts();
+  }, [editId, loadDrafts]);
 
   const applySet = useCallback(
     (set: PostizSet) => {
@@ -148,12 +160,31 @@ export function ComposeScreen() {
           fv[id] = intg ? settingsToFields(intg.identifier, settings) : {};
         }
         setFieldValues(fv);
-        // Keep the full settings (tags, booleans, etc.) so every Set setting is
-        // applied on submit, not just the string fields the UI exposes.
         setBaseSettings(p.settingsById);
         setFormError(null);
       } catch {
         setFormError('Could not load that set.');
+      }
+    },
+    [channels],
+  );
+
+  const loadDraft = useCallback(
+    async (id: string) => {
+      try {
+        const d = await getPostForEdit(id);
+        setSelectedIds(new Set([d.integrationId]));
+        setCaption(stripHtml(d.content, 100000));
+        setAttached(d.image.map((m) => ({ id: m.id, path: m.path, name: '' })));
+        const intg = (channels ?? []).find((c) => c.id === d.integrationId);
+        setFieldValues({
+          [d.integrationId]: intg ? settingsToFields(intg.identifier, d.settings) : {},
+        });
+        setBaseSettings({ [d.integrationId]: d.settings });
+        setScheduleLocal(toLocal(d.publishDate).format('YYYY-MM-DDTHH:mm'));
+        setFormError(null);
+      } catch {
+        setFormError('Could not load that draft.');
       }
     },
     [channels],
@@ -202,18 +233,35 @@ export function ComposeScreen() {
     setAttached([]);
     setFieldValues({});
     setBaseSettings({});
+    setScheduleLocal(defaultScheduleLocal());
     setFormError(null);
   }
 
-  function onPickSet(id: string) {
-    setSetId(id);
-    setLastSetId(id);
-    if (!id) {
-      resetComposer();
-      return;
+  // Apply a Set or draft selection. Sets and drafts are mutually exclusive
+  // sources; picking one clears the other. Empty id resets to a blank compose.
+  function doSwitch(kind: 'set' | 'draft', id: string) {
+    if (kind === 'set') {
+      setDraftId('');
+      setSetId(id);
+      setLastSetId(id);
+      if (!id) resetComposer();
+      else {
+        const s = sets.find((x) => x.id === id);
+        if (s) applySet(s);
+      }
+    } else {
+      setSetId('');
+      setLastSetId('');
+      setDraftId(id);
+      if (!id) resetComposer();
+      else void loadDraft(id);
     }
-    const s = sets.find((x) => x.id === id);
-    if (s) applySet(s);
+    setDirty(false);
+  }
+
+  function requestSwitch(kind: 'set' | 'draft', id: string) {
+    if (dirty) setPendingSwitch({ kind, id });
+    else doSwitch(kind, id);
   }
 
   async function onSaveSet() {
@@ -234,9 +282,7 @@ export function ComposeScreen() {
         dateISO: localInputToUtcISO(scheduleLocal),
         channels: currentChannels(),
       });
-      setSaveSetName('');
-      setOverrideSetId('');
-      setShowSaveSet(false);
+      cancelSaveSet();
       await loadSets();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Could not save the set.');
@@ -245,17 +291,29 @@ export function ComposeScreen() {
     }
   }
 
-  async function onDeleteSet(id: string) {
+  function cancelSaveSet() {
+    setSaveSetName('');
+    setOverrideSetId('');
+    setShowSaveSet(false);
+  }
+
+  async function onDeleteDraft() {
+    const id = draftId;
+    setConfirmDeleteDraft(false);
+    if (!id) return;
     try {
-      await deleteSet(id);
-      if (setId === id) onPickSet('');
-      await loadSets();
+      await deletePost(id);
+      setDrafts((prev) => prev.filter((d) => d.id !== id));
+      setDraftId('');
+      resetComposer();
+      setDirty(false);
     } catch {
-      /* ignore */
+      setFormError('Could not delete the draft.');
     }
   }
 
   function toggleChannel(intg: Integration) {
+    markDirty();
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(intg.id)) next.delete(intg.id);
@@ -272,6 +330,7 @@ export function ComposeScreen() {
   }
 
   function setField(id: string, key: string, value: string) {
+    markDirty();
     setFieldValues((fv) => ({ ...fv, [id]: { ...fv[id], [key]: value } }));
   }
 
@@ -340,49 +399,49 @@ export function ComposeScreen() {
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-newTextColor">Draft</span>
-            <select
-              value=""
-              onChange={(e) => e.target.value && navigate(`/compose?edit=${e.target.value}`)}
-              className={inputClass}
-              disabled={drafts.length === 0}
-            >
-              <option value="">
-                {drafts.length === 0 ? 'No drafts' : 'Load a draft…'}
-              </option>
-              {drafts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {draftLabel(d)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-newTextColor">Set</span>
             <div className="flex gap-1.5">
               <select
-                value={setId}
-                onChange={(e) => onPickSet(e.target.value)}
+                value={draftId}
+                onChange={(e) => requestSwitch('draft', e.target.value)}
                 className={cx(inputClass, 'min-w-0 flex-1')}
+                disabled={drafts.length === 0}
               >
-                <option value="">No Set</option>
-                {sets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
+                <option value="">
+                  {drafts.length === 0 ? 'No drafts' : 'No draft'}
+                </option>
+                {drafts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {draftLabel(d)}
                   </option>
                 ))}
               </select>
-              {setId && (
+              {draftId && (
                 <button
                   type="button"
-                  onClick={() => onDeleteSet(setId)}
-                  aria-label="Delete this set"
+                  onClick={() => setConfirmDeleteDraft(true)}
+                  aria-label="Delete this draft"
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-newBorder text-newTableText hover:text-[#ff6b6b]"
                 >
                   <Trash size={16} />
                 </button>
               )}
             </div>
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-newTextColor">Set</span>
+            <select
+              value={setId}
+              onChange={(e) => requestSwitch('set', e.target.value)}
+              className={inputClass}
+            >
+              <option value="">No Set</option>
+              {sets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       )}
@@ -425,7 +484,10 @@ export function ComposeScreen() {
       <Field label="Caption">
         <textarea
           value={caption}
-          onChange={(e) => setCaption(e.target.value)}
+          onChange={(e) => {
+            setCaption(e.target.value);
+            markDirty();
+          }}
           rows={4}
           placeholder="What do you want to say?"
           className="w-full resize-y rounded-[10px] border border-newBorder bg-newBgColorInner p-3 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40"
@@ -448,7 +510,10 @@ export function ComposeScreen() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAttached((prev) => prev.filter((x) => x.id !== m.id))}
+                  onClick={() => {
+                    setAttached((prev) => prev.filter((x) => x.id !== m.id));
+                    markDirty();
+                  }}
                   className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
                   aria-label="Remove"
                 >
@@ -459,7 +524,13 @@ export function ComposeScreen() {
           </ul>
         )}
         {showMedia ? (
-          <MediaPicker selected={attached} onChange={setAttached} />
+          <MediaPicker
+            selected={attached}
+            onChange={(m) => {
+              setAttached(m);
+              markDirty();
+            }}
+          />
         ) : (
           <Button variant="ghost" onClick={() => setShowMedia(true)}>
             <ImageIcon size={18} /> Add media
@@ -521,7 +592,10 @@ export function ComposeScreen() {
         <input
           type="datetime-local"
           value={scheduleLocal}
-          onChange={(e) => setScheduleLocal(e.target.value)}
+          onChange={(e) => {
+            setScheduleLocal(e.target.value);
+            markDirty();
+          }}
           disabled={asDraft}
           className="w-full rounded-[10px] border border-newBorder bg-newBgColorInner p-3 text-[16px] text-newTextColor focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40 disabled:opacity-50"
         />
@@ -530,7 +604,10 @@ export function ComposeScreen() {
             <input
               type="checkbox"
               checked={asDraft}
-              onChange={(e) => setAsDraft(e.target.checked)}
+              onChange={(e) => {
+                setAsDraft(e.target.checked);
+                markDirty();
+              }}
               className="h-4 w-4 accent-btnPrimary"
             />
             Save as draft instead of scheduling
@@ -570,13 +647,19 @@ export function ComposeScreen() {
                 className={inputClass}
               />
             )}
-            <Button
-              onClick={onSaveSet}
-              loading={savingSet}
-              disabled={!overrideSetId && !saveSetName.trim()}
-            >
-              {overrideSetId ? 'Override set' : 'Save set'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={onSaveSet}
+                loading={savingSet}
+                disabled={!overrideSetId && !saveSetName.trim()}
+                className="flex-1"
+              >
+                {overrideSetId ? 'Override set' : 'Save set'}
+              </Button>
+              <Button variant="ghost" onClick={cancelSaveSet} className="flex-1">
+                Cancel
+              </Button>
+            </div>
           </div>
         </details>
       )}
@@ -613,6 +696,33 @@ export function ComposeScreen() {
           danger
           onConfirm={() => navigate('/')}
           onCancel={() => setConfirmCancel(false)}
+        />
+      )}
+
+      {pendingSwitch && (
+        <ConfirmModal
+          title="Discard unsaved changes?"
+          message="Switching will discard the changes you have made to this post."
+          confirmLabel="Discard"
+          cancelLabel="Keep editing"
+          danger
+          onConfirm={() => {
+            doSwitch(pendingSwitch.kind, pendingSwitch.id);
+            setPendingSwitch(null);
+          }}
+          onCancel={() => setPendingSwitch(null)}
+        />
+      )}
+
+      {confirmDeleteDraft && (
+        <ConfirmModal
+          title="Delete this draft?"
+          message="This permanently removes the draft from Postiz."
+          confirmLabel="Delete"
+          cancelLabel="Keep draft"
+          danger
+          onConfirm={onDeleteDraft}
+          onCancel={() => setConfirmDeleteDraft(false)}
         />
       )}
     </section>

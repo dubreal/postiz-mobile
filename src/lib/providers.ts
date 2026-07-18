@@ -29,7 +29,7 @@ export function providerLabel(identifier: string): string {
 /** Fields the user must/may provide per provider, surfaced in an advanced panel. */
 export interface ProviderFieldSpec {
   key: string;
-  // text: string input. select: dropdown. tags: comma-separated -> string[].
+  // text: string input. select: dropdown. tags: comma-separated list.
   // toggle: checkbox -> boolean.
   type: 'text' | 'select' | 'tags' | 'toggle';
   label: string;
@@ -37,8 +37,15 @@ export interface ProviderFieldSpec {
   options?: { value: string; label: string }[];
   placeholder?: string;
   help?: string;
+  // Shape each tags entry serializes to. Postiz YouTube tags are {value,label},
+  // Instagram collaborators are {label}. Ignored for non-tags fields.
+  tagShape?: 'value-label' | 'label';
 }
 
+// Fields mirror the per-channel option panels in Postiz desktop
+// (v2.21.9 providers-settings DTOs). Complex media inputs the mobile UI does not
+// yet support (YouTube thumbnail, Instagram audio) are intentionally omitted;
+// their values are preserved untouched from an applied Set or edited post.
 export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
   youtube: [
     {
@@ -61,15 +68,36 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
       ],
     },
     {
+      key: 'selfDeclaredMadeForKids',
+      label: 'Audience',
+      type: 'select',
+      required: true,
+      options: [
+        { value: '', label: 'Select audience…' },
+        { value: 'no', label: 'No, not made for kids' },
+        { value: 'yes', label: 'Yes, made for kids' },
+      ],
+      help: 'Required by YouTube (COPPA). Setting this wrong can trigger account penalties or legal trouble. Choose deliberately.',
+    },
+    {
       key: 'tags',
       label: 'Tags',
       type: 'tags',
       required: false,
+      tagShape: 'value-label',
       placeholder: 'travel, vlog, 4k',
-      help: 'Comma-separated. Applied to the YouTube upload.',
+      help: 'Comma-separated. Up to 500 characters total.',
     },
   ],
   tiktok: [
+    {
+      key: 'title',
+      label: 'Title',
+      type: 'text',
+      required: false,
+      placeholder: 'Optional title',
+      help: 'Up to 90 characters.',
+    },
     {
       key: 'privacy_level',
       label: 'Privacy',
@@ -83,9 +111,47 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
       ],
       help: 'Unaudited TikTok apps can only post SELF_ONLY to a private account.',
     },
+    {
+      key: 'content_posting_method',
+      label: 'Posting method',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'DIRECT_POST', label: 'Direct post' },
+        { value: 'UPLOAD', label: 'Upload to drafts' },
+      ],
+    },
+    {
+      key: 'autoAddMusic',
+      label: 'Auto-add music',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'no', label: 'No' },
+        { value: 'yes', label: 'Yes' },
+      ],
+    },
     { key: 'duet', label: 'Allow Duet', type: 'toggle', required: false },
     { key: 'stitch', label: 'Allow Stitch', type: 'toggle', required: false },
     { key: 'comment', label: 'Allow Comments', type: 'toggle', required: false },
+    {
+      key: 'video_made_with_ai',
+      label: 'AI-generated content',
+      type: 'toggle',
+      required: false,
+    },
+    {
+      key: 'brand_content_toggle',
+      label: 'Branded content (paid partnership)',
+      type: 'toggle',
+      required: false,
+    },
+    {
+      key: 'brand_organic_toggle',
+      label: 'Promote your own brand',
+      type: 'toggle',
+      required: false,
+    },
   ],
   discord: [
     {
@@ -113,9 +179,11 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
       label: 'Collaborators',
       type: 'tags',
       required: false,
+      tagShape: 'label',
       placeholder: 'username1, username2',
       help: 'Comma-separated Instagram usernames.',
     },
+    { key: 'is_trial_reel', label: 'Trial reel', type: 'toggle', required: false },
   ],
 };
 
@@ -126,6 +194,7 @@ export function defaultSettings(identifier: string): Record<string, unknown> {
       return { title: '', type: 'public', tags: [] };
     case 'tiktok':
       return {
+        title: '',
         privacy_level: 'SELF_ONLY',
         duet: false,
         stitch: false,
@@ -133,6 +202,7 @@ export function defaultSettings(identifier: string): Record<string, unknown> {
         autoAddMusic: 'no',
         brand_content_toggle: false,
         brand_organic_toggle: false,
+        video_made_with_ai: false,
         content_posting_method: 'DIRECT_POST',
       };
     case 'discord':
@@ -160,7 +230,18 @@ export function settingsToFields(
     const v = base[f.key];
     switch (f.type) {
       case 'tags':
-        out[f.key] = Array.isArray(v) ? v.join(', ') : '';
+        out[f.key] = Array.isArray(v)
+          ? v
+              .map((t) =>
+                typeof t === 'string'
+                  ? t
+                  : ((t as { label?: string; value?: string })?.label ??
+                    (t as { value?: string })?.value ??
+                    ''),
+              )
+              .filter(Boolean)
+              .join(', ')
+          : '';
         break;
       case 'toggle':
         out[f.key] = v === true ? 'true' : 'false';
@@ -184,12 +265,17 @@ export function fieldsToSettings(
   for (const f of PROVIDER_FIELDS[identifier] ?? []) {
     const v = fv[f.key];
     switch (f.type) {
-      case 'tags':
-        out[f.key] = (v ?? '')
+      case 'tags': {
+        const items = (v ?? '')
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean);
+        out[f.key] =
+          f.tagShape === 'label'
+            ? items.map((label) => ({ label }))
+            : items.map((label) => ({ value: label, label }));
         break;
+      }
       case 'toggle':
         out[f.key] = v === 'true';
         break;
