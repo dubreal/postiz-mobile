@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   Image as ImageIcon,
   X,
-  Stack,
+  CaretDown,
   FloppyDisk,
   Trash,
 } from '@phosphor-icons/react';
@@ -12,6 +12,7 @@ import {
   getIntegrations,
   createPost,
   getSets,
+  getDrafts,
   saveSet,
   deleteSet,
   parseSetContent,
@@ -25,17 +26,23 @@ import {
   PROVIDER_FIELDS,
   defaultSettings,
   providerLabel,
+  settingsToFields,
+  fieldsToSettings,
   type ProviderFieldSpec,
 } from '@/lib/providers';
 import { defaultScheduleLocal, localInputToUtcISO, stripHtml, toLocal } from '@/lib/format';
+import { getLastSetId, setLastSetId } from '@/lib/prefs';
 import { Button, ConfirmModal, ErrorState, Spinner, cx } from '@/components/ui';
 import { MediaThumb } from '@/components/MediaGrid';
 import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
 import { MediaPicker } from '@/components/MediaPicker';
-import type { Integration, MediaItem } from '@/lib/types';
+import type { CalendarPost, Integration, MediaItem } from '@/lib/types';
 
 type FieldValues = Record<string, Record<string, string>>; // integrationId -> key -> value
+
+const inputClass =
+  'w-full rounded-[10px] border border-newBorder bg-newBgColorInner p-2.5 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40';
 
 export function ComposeScreen() {
   const navigate = useNavigate();
@@ -52,8 +59,8 @@ export function ComposeScreen() {
   const [showMedia, setShowMedia] = useState(false);
   const [fieldValues, setFieldValues] = useState<FieldValues>({});
   // Full per-channel settings from an applied Set or edited post, including
-  // non-string values (YouTube tags, booleans) the string-only field UI drops.
-  // Merged UNDER fieldValues at submit so live edits still win.
+  // non-string values (YouTube tags, booleans) the field UI edits as strings.
+  // Merged UNDER the coerced field values at submit so live edits still win.
   const [baseSettings, setBaseSettings] = useState<Record<string, Record<string, unknown>>>({});
   const [scheduleLocal, setScheduleLocal] = useState(defaultScheduleLocal());
   const [asDraft, setAsDraft] = useState(false);
@@ -65,8 +72,11 @@ export function ComposeScreen() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<MediaItem | null>(null);
   const [sets, setSets] = useState<PostizSet[]>([]);
+  const [drafts, setDrafts] = useState<CalendarPost[]>([]);
+  const [setId, setSetId] = useState('');
   const [showSaveSet, setShowSaveSet] = useState(false);
-  const [setName, setSetName] = useState('');
+  const [saveSetName, setSaveSetName] = useState('');
+  const [overrideSetId, setOverrideSetId] = useState('');
   const [savingSet, setSavingSet] = useState(false);
 
   const active = useMemo(
@@ -87,12 +97,9 @@ export function ComposeScreen() {
         setCaption(stripHtml(d.content, 100000));
         setAttached(d.image.map((m) => ({ id: m.id, path: m.path, name: '' })));
         const intg = channels.find((c) => c.id === d.integrationId);
-        const seeded = intg ? seedFields(intg.identifier) : {};
-        const strs: Record<string, string> = {};
-        for (const [k, v] of Object.entries(d.settings)) {
-          if (typeof v === 'string') strs[k] = v;
-        }
-        setFieldValues({ [d.integrationId]: { ...seeded, ...strs } });
+        setFieldValues({
+          [d.integrationId]: intg ? settingsToFields(intg.identifier, d.settings) : {},
+        });
         setBaseSettings({ [d.integrationId]: d.settings });
         setScheduleLocal(toLocal(d.publishDate).format('YYYY-MM-DDTHH:mm'));
       })
@@ -116,6 +123,55 @@ export function ComposeScreen() {
     void loadSets();
   }, [loadSets]);
 
+  // Saved drafts, offered as a quick-load dropdown (not while editing one).
+  useEffect(() => {
+    if (editId) return;
+    getDrafts()
+      .then(setDrafts)
+      .catch(() => {
+        /* drafts are optional */
+      });
+  }, [editId]);
+
+  const applySet = useCallback(
+    (set: PostizSet) => {
+      try {
+        const p = parseSetContent(set.content);
+        setSelectedIds(new Set(p.channelIds));
+        // Desktop-saved Sets store the caption as HTML (<p>…</p>); flatten so the
+        // tags don't leak into the submitted description.
+        setCaption(stripHtml(p.caption, 100000));
+        setAttached(p.media.map((m) => ({ id: m.id, path: m.path, name: '' })));
+        const fv: FieldValues = {};
+        for (const [id, settings] of Object.entries(p.settingsById)) {
+          const intg = (channels ?? []).find((c) => c.id === id);
+          fv[id] = intg ? settingsToFields(intg.identifier, settings) : {};
+        }
+        setFieldValues(fv);
+        // Keep the full settings (tags, booleans, etc.) so every Set setting is
+        // applied on submit, not just the string fields the UI exposes.
+        setBaseSettings(p.settingsById);
+        setFormError(null);
+      } catch {
+        setFormError('Could not load that set.');
+      }
+    },
+    [channels],
+  );
+
+  // Reopen the Compose screen on the Set last used, applied automatically once.
+  const autoAppliedRef = useRef(false);
+  useEffect(() => {
+    if (editId || autoAppliedRef.current || sets.length === 0) return;
+    autoAppliedRef.current = true;
+    const last = getLastSetId();
+    const s = last ? sets.find((x) => x.id === last) : undefined;
+    if (s) {
+      setSetId(s.id);
+      applySet(s);
+    }
+  }, [sets, editId, applySet]);
+
   /** Current composer state as post channels (shared by submit and save-as-set). */
   const currentChannels = useCallback(
     (): CreatePostChannel[] =>
@@ -134,38 +190,30 @@ export function ComposeScreen() {
         settings: {
           ...defaultSettings(intg.identifier),
           ...(baseSettings[intg.id] ?? {}),
-          ...fieldValues[intg.id],
+          ...fieldsToSettings(intg.identifier, fieldValues[intg.id]),
         },
       })),
     [active, caption, attached, fieldValues, baseSettings, editData],
   );
 
-  function applySet(set: PostizSet) {
-    try {
-      const p = parseSetContent(set.content);
-      setSelectedIds(new Set(p.channelIds));
-      // Desktop-saved Sets store the caption as HTML (<p>…</p>); flatten so the
-      // tags don't leak into the submitted description.
-      setCaption(stripHtml(p.caption, 100000));
-      setAttached(p.media.map((m) => ({ id: m.id, path: m.path, name: '' })));
-      const fv: FieldValues = {};
-      for (const [id, settings] of Object.entries(p.settingsById)) {
-        const intg = (channels ?? []).find((c) => c.id === id);
-        const seeded = intg ? seedFields(intg.identifier) : {};
-        const strs: Record<string, string> = {};
-        for (const [k, v] of Object.entries(settings)) {
-          if (typeof v === 'string') strs[k] = v;
-        }
-        fv[id] = { ...seeded, ...strs };
-      }
-      setFieldValues(fv);
-      // Keep the full settings (tags, booleans, etc.) so every Set setting is
-      // applied on submit, not just the string fields the UI exposes.
-      setBaseSettings(p.settingsById);
-      setFormError(null);
-    } catch {
-      setFormError('Could not load that set.');
+  function resetComposer() {
+    setSelectedIds(new Set());
+    setCaption('');
+    setAttached([]);
+    setFieldValues({});
+    setBaseSettings({});
+    setFormError(null);
+  }
+
+  function onPickSet(id: string) {
+    setSetId(id);
+    setLastSetId(id);
+    if (!id) {
+      resetComposer();
+      return;
     }
+    const s = sets.find((x) => x.id === id);
+    if (s) applySet(s);
   }
 
   async function onSaveSet() {
@@ -173,15 +221,21 @@ export function ComposeScreen() {
       setFormError('Pick at least one channel before saving a set.');
       return;
     }
-    if (!setName.trim()) return;
+    const name = overrideSetId
+      ? (sets.find((s) => s.id === overrideSetId)?.name ?? '')
+      : saveSetName.trim();
+    if (!name) return;
     setSavingSet(true);
     try {
-      await saveSet(setName.trim(), {
+      // Postiz has no update-set endpoint; overriding replaces the old one.
+      if (overrideSetId) await deleteSet(overrideSetId);
+      await saveSet(name, {
         type: 'schedule',
         dateISO: localInputToUtcISO(scheduleLocal),
         channels: currentChannels(),
       });
-      setSetName('');
+      setSaveSetName('');
+      setOverrideSetId('');
       setShowSaveSet(false);
       await loadSets();
     } catch (err) {
@@ -194,6 +248,7 @@ export function ComposeScreen() {
   async function onDeleteSet(id: string) {
     try {
       await deleteSet(id);
+      if (setId === id) onPickSet('');
       await loadSets();
     } catch {
       /* ignore */
@@ -209,7 +264,7 @@ export function ComposeScreen() {
         // seed default field values so selects/toggles are valid up-front
         setFieldValues((fv) => ({
           ...fv,
-          [intg.id]: { ...seedFields(intg.identifier), ...fv[intg.id] },
+          [intg.id]: { ...settingsToFields(intg.identifier), ...fv[intg.id] },
         }));
       }
       return next;
@@ -280,68 +335,56 @@ export function ComposeScreen() {
         </h1>
       </header>
 
-      {/* Sets — saved channel + content templates (not shown while editing) */}
+      {/* Quick-load: continue a draft, or start from a saved Set */}
       {!editData && (
-      <div className="flex flex-col gap-2 rounded-[12px] border border-newBorder bg-newBgColorInner p-3">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-newTextColor">
-            <Stack size={16} weight="bold" /> Sets
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowSaveSet((s) => !s)}
-            className="flex items-center gap-1 text-xs font-medium text-btnPrimary"
-          >
-            <FloppyDisk size={14} weight="bold" /> Save current
-          </button>
-        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-newTextColor">Draft</span>
+            <select
+              value=""
+              onChange={(e) => e.target.value && navigate(`/compose?edit=${e.target.value}`)}
+              className={inputClass}
+              disabled={drafts.length === 0}
+            >
+              <option value="">
+                {drafts.length === 0 ? 'No drafts' : 'Load a draft…'}
+              </option>
+              {drafts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {draftLabel(d)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        {sets.length === 0 ? (
-          <p className="text-xs text-newTableText">
-            No sets yet. Build a post, then Save current to reuse it.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {sets.map((s) => (
-              <span
-                key={s.id}
-                className="flex items-center gap-1.5 rounded-full border border-newBorder bg-newBgColor py-1 pl-3 pr-1.5 text-sm text-newTextColor"
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-newTextColor">Set</span>
+            <div className="flex gap-1.5">
+              <select
+                value={setId}
+                onChange={(e) => onPickSet(e.target.value)}
+                className={cx(inputClass, 'min-w-0 flex-1')}
               >
-                <button type="button" onClick={() => applySet(s)} className="font-medium">
-                  {s.name}
-                </button>
+                <option value="">No Set</option>
+                {sets.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              {setId && (
                 <button
                   type="button"
-                  onClick={() => onDeleteSet(s.id)}
-                  aria-label={`Delete set ${s.name}`}
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-newTableText hover:text-[#ff6b6b]"
+                  onClick={() => onDeleteSet(setId)}
+                  aria-label="Delete this set"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-newBorder text-newTableText hover:text-[#ff6b6b]"
                 >
-                  <Trash size={13} />
+                  <Trash size={16} />
                 </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {showSaveSet && (
-          <div className="mt-1 flex gap-2">
-            <input
-              type="text"
-              value={setName}
-              onChange={(e) => setSetName(e.target.value)}
-              placeholder="Set name"
-              className="min-w-0 flex-1 rounded-[10px] border border-newBorder bg-newBgColor px-3 py-2 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none"
-            />
-            <Button
-              onClick={onSaveSet}
-              loading={savingSet}
-              className="h-11 min-h-0 shrink-0 px-4"
-            >
-              Save
-            </Button>
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          </label>
+        </div>
       )}
 
       {/* Channels — locked to the post's channel while editing */}
@@ -424,32 +467,49 @@ export function ComposeScreen() {
         )}
       </Field>
 
-      {/* Per-channel required settings */}
-      {active.some((c) => (PROVIDER_FIELDS[c.identifier] ?? []).length > 0) && (
+      {/* Per-channel options — collapsed cards, one per selected channel */}
+      {active.length > 0 && (
         <Field label="Channel options">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2.5">
             {active.map((intg) => {
               const fields = PROVIDER_FIELDS[intg.identifier] ?? [];
-              if (fields.length === 0) return null;
               return (
-                <div
+                <details
                   key={intg.id}
-                  className="rounded-[10px] border border-newBorder bg-newBgColorInner p-3"
+                  className="group overflow-hidden rounded-[10px] border border-newBorder bg-newBgColorInner"
                 >
-                  <p className="mb-2 text-sm font-semibold text-newTextColor">
-                    {intg.name}
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    {fields.map((f) => (
-                      <FieldInput
-                        key={f.key}
-                        spec={f}
-                        value={fieldValues[intg.id]?.[f.key] ?? ''}
-                        onChange={(v) => setField(intg.id, f.key, v)}
-                      />
-                    ))}
+                  <summary className="flex cursor-pointer list-none items-center gap-2.5 p-3 [&::-webkit-details-marker]:hidden">
+                    <Avatar picture={intg.picture} identifier={intg.identifier} size={28} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-newTextColor">
+                        {intg.name}
+                      </span>
+                      <span className="block text-[11px] text-newTableText">
+                        {providerLabel(intg.identifier)}
+                      </span>
+                    </span>
+                    <CaretDown
+                      size={16}
+                      className="text-newTableText transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="flex flex-col gap-3 border-t border-newBorder p-3">
+                    {fields.length === 0 ? (
+                      <p className="text-xs text-newTableText">
+                        No extra options for {providerLabel(intg.identifier)}.
+                      </p>
+                    ) : (
+                      fields.map((f) => (
+                        <FieldInput
+                          key={f.key}
+                          spec={f}
+                          value={fieldValues[intg.id]?.[f.key] ?? ''}
+                          onChange={(v) => setField(intg.id, f.key, v)}
+                        />
+                      ))
+                    )}
                   </div>
-                </div>
+                </details>
               );
             })}
           </div>
@@ -478,30 +538,67 @@ export function ComposeScreen() {
         )}
       </Field>
 
+      {/* Save as set — capture the current post config for reuse */}
+      {!editData && (
+        <details
+          open={showSaveSet}
+          onToggle={(e) => setShowSaveSet((e.target as HTMLDetailsElement).open)}
+          className="overflow-hidden rounded-[12px] border border-newBorder bg-newBgColorInner"
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 p-3 text-sm font-semibold text-newTextColor [&::-webkit-details-marker]:hidden">
+            <FloppyDisk size={16} weight="bold" /> Save as set
+          </summary>
+          <div className="flex flex-col gap-2 border-t border-newBorder p-3">
+            <select
+              value={overrideSetId}
+              onChange={(e) => setOverrideSetId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">New set…</option>
+              {sets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Override: {s.name}
+                </option>
+              ))}
+            </select>
+            {!overrideSetId && (
+              <input
+                type="text"
+                value={saveSetName}
+                onChange={(e) => setSaveSetName(e.target.value)}
+                placeholder="Set name"
+                className={inputClass}
+              />
+            )}
+            <Button
+              onClick={onSaveSet}
+              loading={savingSet}
+              disabled={!overrideSetId && !saveSetName.trim()}
+            >
+              {overrideSetId ? 'Override set' : 'Save set'}
+            </Button>
+          </div>
+        </details>
+      )}
+
       {formError && (
         <p role="alert" className="rounded-[10px] bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff6b6b]">
           {formError}
         </p>
       )}
 
-      {editData ? (
-        <div className="flex gap-2">
-          <Button onClick={submit} loading={submitting} className="flex-1">
-            Update post
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setConfirmCancel(true)}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-        </div>
-      ) : (
-        <Button onClick={submit} loading={submitting} className="w-full">
-          {asDraft ? 'Save draft' : 'Schedule post'}
+      <div className="flex gap-2">
+        <Button onClick={submit} loading={submitting} className="flex-1">
+          {editData ? 'Update post' : asDraft ? 'Save draft' : 'Schedule post'}
         </Button>
-      )}
+        <Button
+          variant="ghost"
+          onClick={() => setConfirmCancel(true)}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+      </div>
 
       {viewingMedia && (
         <MediaViewer item={viewingMedia} onClose={() => setViewingMedia(null)} />
@@ -510,7 +607,7 @@ export function ComposeScreen() {
       {confirmCancel && (
         <ConfirmModal
           title="Discard changes?"
-          message="Your edits to this post will be lost."
+          message="Any changes to this post will be lost."
           confirmLabel="Discard"
           cancelLabel="Keep editing"
           danger
@@ -520,6 +617,11 @@ export function ComposeScreen() {
       )}
     </section>
   );
+}
+
+function draftLabel(d: CalendarPost): string {
+  const text = stripHtml(d.content, 32);
+  return `${d.integration.name}: ${text || 'Untitled'}`;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -541,7 +643,23 @@ function FieldInput({
   onChange: (v: string) => void;
 }) {
   const base =
-    'w-full rounded-[10px] border border-newBorder bg-newBgColor p-2.5 text-[16px] text-newTextColor focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40';
+    'w-full rounded-[10px] border border-newBorder bg-newBgColor p-2.5 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40';
+
+  // Toggle renders as a full-width checkbox row, no floating label.
+  if (spec.type === 'toggle') {
+    return (
+      <label className="flex items-center gap-2 text-sm text-newTextColor">
+        <input
+          type="checkbox"
+          checked={value === 'true'}
+          onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+          className="h-4 w-4 accent-btnPrimary"
+        />
+        {spec.label}
+      </label>
+    );
+  }
+
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-medium text-newTableText">
@@ -568,15 +686,4 @@ function FieldInput({
       {spec.help && <span className="text-[11px] text-newTableText">{spec.help}</span>}
     </label>
   );
-}
-
-function seedFields(identifier: string): Record<string, string> {
-  const base = defaultSettings(identifier);
-  const out: Record<string, string> = {};
-  for (const f of PROVIDER_FIELDS[identifier] ?? []) {
-    const v = base[f.key];
-    if (typeof v === 'string') out[f.key] = v;
-    else if (f.type === 'select' && f.options?.[0]) out[f.key] = f.options[0].value;
-  }
-  return out;
 }

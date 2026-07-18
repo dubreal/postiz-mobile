@@ -34,3 +34,23 @@ export function setCalendarPrefs(prefs: CalendarPrefs): void {
     /* ignore quota/availability errors */
   }
 }
+
+// Last Set applied in Compose, so the selector reopens where you left off.
+// '' means "No Set".
+const LAST_SET_KEY = 'pm-last-set-id';
+
+export function getLastSetId(): string {
+  try {
+    return localStorage.getItem(LAST_SET_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setLastSetId(id: string): void {
+  try {
+    localStorage.setItem(LAST_SET_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}

@@ -29,8 +29,10 @@ export function providerLabel(identifier: string): string {
 /** Fields the user must/may provide per provider, surfaced in an advanced panel. */
 export interface ProviderFieldSpec {
   key: string;
+  // text: string input. select: dropdown. tags: comma-separated -> string[].
+  // toggle: checkbox -> boolean.
+  type: 'text' | 'select' | 'tags' | 'toggle';
   label: string;
-  type: 'text' | 'select';
   required: boolean;
   options?: { value: string; label: string }[];
   placeholder?: string;
@@ -58,6 +60,14 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
         { value: 'private', label: 'Private' },
       ],
     },
+    {
+      key: 'tags',
+      label: 'Tags',
+      type: 'tags',
+      required: false,
+      placeholder: 'travel, vlog, 4k',
+      help: 'Comma-separated. Applied to the YouTube upload.',
+    },
   ],
   tiktok: [
     {
@@ -73,6 +83,9 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
       ],
       help: 'Unaudited TikTok apps can only post SELF_ONLY to a private account.',
     },
+    { key: 'duet', label: 'Allow Duet', type: 'toggle', required: false },
+    { key: 'stitch', label: 'Allow Stitch', type: 'toggle', required: false },
+    { key: 'comment', label: 'Allow Comments', type: 'toggle', required: false },
   ],
   discord: [
     {
@@ -94,6 +107,14 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
         { value: 'post', label: 'Feed post / Reel' },
         { value: 'story', label: 'Story' },
       ],
+    },
+    {
+      key: 'collaborators',
+      label: 'Collaborators',
+      type: 'tags',
+      required: false,
+      placeholder: 'username1, username2',
+      help: 'Comma-separated Instagram usernames.',
     },
   ],
 };
@@ -122,4 +143,59 @@ export function defaultSettings(identifier: string): Record<string, unknown> {
     default:
       return {};
   }
+}
+
+/**
+ * Turn a full settings object (from defaults, a Set, or an edited post) into the
+ * string-only values the field UI edits. Non-string settings (tags arrays,
+ * booleans) are stringified so they show and round-trip instead of being dropped.
+ */
+export function settingsToFields(
+  identifier: string,
+  settings?: Record<string, unknown>,
+): Record<string, string> {
+  const base = { ...defaultSettings(identifier), ...(settings ?? {}) };
+  const out: Record<string, string> = {};
+  for (const f of PROVIDER_FIELDS[identifier] ?? []) {
+    const v = base[f.key];
+    switch (f.type) {
+      case 'tags':
+        out[f.key] = Array.isArray(v) ? v.join(', ') : '';
+        break;
+      case 'toggle':
+        out[f.key] = v === true ? 'true' : 'false';
+        break;
+      case 'select':
+        out[f.key] = typeof v === 'string' && v ? v : (f.options?.[0]?.value ?? '');
+        break;
+      default:
+        out[f.key] = typeof v === 'string' ? v : '';
+    }
+  }
+  return out;
+}
+
+/** Inverse of settingsToFields: coerce edited field strings back to API types. */
+export function fieldsToSettings(
+  identifier: string,
+  fv: Record<string, string> = {},
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of PROVIDER_FIELDS[identifier] ?? []) {
+    const v = fv[f.key];
+    switch (f.type) {
+      case 'tags':
+        out[f.key] = (v ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        break;
+      case 'toggle':
+        out[f.key] = v === 'true';
+        break;
+      default:
+        out[f.key] = v ?? '';
+    }
+  }
+  return out;
 }

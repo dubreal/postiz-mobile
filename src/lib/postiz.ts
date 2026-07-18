@@ -147,6 +147,15 @@ export function getSets(): Promise<PostizSet[]> {
   return api.get<PostizSet[]>('/api/sets');
 }
 
+/** Saved drafts (posts in the DRAFT state), newest first, over a wide window. */
+export async function getDrafts(): Promise<CalendarPost[]> {
+  const year = 365 * 24 * 60 * 60 * 1000;
+  const start = new Date(Date.now() - year).toISOString();
+  const end = new Date(Date.now() + year).toISOString();
+  const posts = await getCalendar(start, end);
+  return posts.filter((p) => p.state === 'DRAFT').reverse();
+}
+
 export function saveSet(name: string, input: CreatePostInput): Promise<unknown> {
   return api.post('/api/sets', { name, content: JSON.stringify(buildPostBody(input)) });
 }
