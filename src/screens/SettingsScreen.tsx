@@ -53,11 +53,6 @@ export function SettingsScreen() {
         }
       />
 
-      <Row
-        label="Media storage"
-        value={storage === 'cloudflare' ? 'Object storage (S3-compatible)' : 'Local disk'}
-      />
-
       <ShortlinkSetting />
 
       <NotificationSettings />
@@ -69,6 +64,11 @@ export function SettingsScreen() {
       <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <SignaturesManager />
       </div>
+
+      <Row
+        label="Media storage"
+        value={storage === 'cloudflare' ? 'Object storage (S3-compatible)' : 'Local disk'}
+      />
 
       <div className="flex items-start gap-3 rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <ShieldCheck size={20} className="mt-0.5 shrink-0 text-btnPrimary" />
