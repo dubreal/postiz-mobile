@@ -38,6 +38,11 @@ export function localInputToUtcISO(localValue: string): string {
   return dayjs(localValue).utc().toISOString();
 }
 
+/** True when two datetimes refer to the same minute, ignoring string format. */
+export function sameInstant(a: string, b: string): boolean {
+  return dayjs(a).isSame(dayjs(b), 'minute');
+}
+
 /** Default schedule value: next top-of-hour, formatted for datetime-local. */
 export function defaultScheduleLocal(): string {
   return dayjs().add(1, 'hour').startOf('hour').format('YYYY-MM-DDTHH:mm');

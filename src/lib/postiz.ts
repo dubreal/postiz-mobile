@@ -122,9 +122,29 @@ function buildPostBody(input: CreatePostInput) {
   };
 }
 
+/** One entry per channel; postId is that channel's root post. */
+export interface CreatedPostRef {
+  postId: string;
+  integration: string;
+}
+
 /** Build the post body and send it to schedule/draft. */
-export function createPost(input: CreatePostInput): Promise<unknown> {
-  return papi.post('/api/public/v1/posts', buildPostBody(input));
+export function createPost(input: CreatePostInput): Promise<CreatedPostRef[]> {
+  return papi.post('/api/public/v1/posts', buildPostBody(input)) as Promise<
+    CreatedPostRef[]
+  >;
+}
+
+// Postiz skips startWorkflow for type:'update' (posts.service.ts), so editing a
+// post's time updates publishDate while the Temporal timer keeps firing at the
+// ORIGINAL time. This endpoint -- what the desktop calendar's drag-to-reschedule
+// calls -- runs startWorkflow, which terminates the stale workflow and starts a
+// fresh one off the new date. Must be called per channel root post.
+export function reschedulePost(postId: string, dateISO: string): Promise<unknown> {
+  return api.put(`/api/posts/${postId}/date`, {
+    date: dateISO,
+    action: 'schedule',
+  });
 }
 
 // ----- Sets (saved channel + content templates) -----

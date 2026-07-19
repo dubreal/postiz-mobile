@@ -11,6 +11,7 @@ import {
 import {
   getIntegrations,
   createPost,
+  reschedulePost,
   getSets,
   getDrafts,
   saveSet,
@@ -38,6 +39,7 @@ import {
   isPastLocalInput,
   localInputToUtcISO,
   nowLocalInput,
+  sameInstant,
   stripHtml,
   toLocal,
 } from '@/lib/format';
@@ -449,11 +451,22 @@ export function ComposeScreen() {
     setFormError(null);
     setSubmitting(true);
     try {
-      await createPost({
+      const dateISO = localInputToUtcISO(scheduleLocal);
+      const created = await createPost({
         type: editData ? 'update' : postNow ? 'now' : asDraft ? 'draft' : 'schedule',
-        dateISO: localInputToUtcISO(scheduleLocal),
+        dateISO,
         channels: currentChannels(),
       });
+
+      // An update leaves the Temporal timer on the old time, so a moved post
+      // fires at its original slot. Restart each channel's workflow off the new
+      // date. Only on a real time change -- rescheduling is not free.
+      if (editData && !sameInstant(dateISO, editData.publishDate)) {
+        await Promise.all(
+          (created ?? []).map((p) => reschedulePost(p.postId, dateISO)),
+        );
+      }
+
       setDone(true);
       setTimeout(() => navigate('/'), 1200);
     } catch (err) {
