@@ -236,6 +236,26 @@ export function updateEmailNotifications(prefs: EmailNotifications): Promise<unk
   return api.post('/api/user/email-notifications', { ...prefs });
 }
 
+// ----- In-app notifications -----
+
+export interface NotificationItem {
+  createdAt: string; // UTC ISO
+  content: string; // may be HTML
+}
+
+/** Unread count (notifications newer than the user's last read time). */
+export function getNotificationCount(): Promise<{ total: number }> {
+  return api.get<{ total: number }>('/api/notifications');
+}
+
+/**
+ * Latest 10 notifications, newest first. Side effect on the server: this marks
+ * everything as read (advances the user's lastReadNotifications to now).
+ */
+export function getNotifications(): Promise<{ notifications: NotificationItem[] }> {
+  return api.get<{ notifications: NotificationItem[] }>('/api/notifications/list');
+}
+
 export function parseSetContent(content: string): ParsedSet {
   const d = JSON.parse(content) as {
     posts?: {

@@ -1,11 +1,18 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(utc);
+dayjs.extend(relativeTime);
 
 /** Postiz stores dates in UTC; render in the viewer's local zone. */
 export function toLocal(iso: string) {
   return dayjs.utc(iso).local();
+}
+
+/** "3 minutes ago"-style relative label from a UTC ISO string. */
+export function fromNow(iso: string): string {
+  return toLocal(iso).fromNow();
 }
 
 export function dayKey(iso: string): string {

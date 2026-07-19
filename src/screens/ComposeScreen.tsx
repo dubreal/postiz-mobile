@@ -42,7 +42,7 @@ import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
 import { MediaPicker } from '@/components/MediaPicker';
 import { ChannelPickerSheet } from '@/components/ChannelPickerSheet';
-import { StreakBadge } from '@/components/StreakBadge';
+import { HeaderActions } from '@/components/HeaderActions';
 import type { CalendarPost, Integration, MediaItem } from '@/lib/types';
 
 type FieldValues = Record<string, Record<string, string>>; // integrationId -> key -> value
@@ -474,7 +474,7 @@ export function ComposeScreen() {
         <h1 className="text-xl font-bold text-newTextColor">
           {editData ? 'Edit post' : 'Compose'}
         </h1>
-        <StreakBadge />
+        <HeaderActions />
       </header>
 
       {/* Quick-load: continue a draft, or start from a saved Set */}

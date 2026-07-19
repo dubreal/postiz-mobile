@@ -19,7 +19,7 @@ import {
 import { EmptyState, ErrorState, Skeleton, cx } from '@/components/ui';
 import { ChannelAvatar, StateBadge } from '@/components/PostBits';
 import { PostDetailSheet } from '@/components/PostDetailSheet';
-import { StreakBadge } from '@/components/StreakBadge';
+import { HeaderActions } from '@/components/HeaderActions';
 import type { CalendarPost } from '@/lib/types';
 
 const VIEWS: { key: CalendarView; label: string }[] = [
@@ -83,7 +83,7 @@ export function CalendarScreen() {
     <section>
       <header className="mb-3 flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-newTextColor">Calendar</h1>
-        <StreakBadge />
+        <HeaderActions />
       </header>
 
       {/* View + sort controls */}
