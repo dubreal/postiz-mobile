@@ -36,7 +36,7 @@ It is a static app plus a thin reverse proxy.
 <p>
   <img src="docs/screenshots/calendar-month-v2.jpg" alt="Calendar, month view: a dot-grid month with the selected day's posts listed below, each with a platform badge and status" width="32%" />
   <img src="docs/screenshots/calendar-list-v2.jpg" alt="Calendar, list view: posts across a date range grouped by day with published/scheduled status badges" width="32%" />
-  <img src="docs/screenshots/compose.jpg" alt="Compose: draft and set pickers, a channel picker showing '2 selected', caption, media, and channel option cards" width="32%" />
+  <img src="docs/screenshots/compose-v2.jpg" alt="Compose: draft and set pickers, a channel picker showing '2 selected', caption, media, and channel option cards" width="32%" />
   <img src="docs/screenshots/compose-media.jpg" alt="Compose media picker: attached media with a remove control, an upload button, and a grid of library media to select" width="32%" />
   <img src="docs/screenshots/channel-options.jpg" alt="Channel option cards: Instagram post type and collaborators, YouTube title, visibility, audience (made-for-kids), and tags" width="32%" />
   <img src="docs/screenshots/notifications.jpg" alt="Notifications modal: a scrollable list of post-published notifications with relative times and an X to close" width="32%" />
