@@ -55,10 +55,6 @@ export function SettingsScreen() {
         }
       />
 
-      <ShortlinkSetting />
-
-      <NotificationSettings />
-
       <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <SetsManager />
       </div>
@@ -66,6 +62,10 @@ export function SettingsScreen() {
       <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <SignaturesManager />
       </div>
+
+      <NotificationSettings />
+
+      <ShortlinkSetting />
 
       <Row
         label="Media storage"
