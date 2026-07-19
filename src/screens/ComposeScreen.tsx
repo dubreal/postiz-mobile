@@ -18,9 +18,11 @@ import {
   deletePost,
   parseSetContent,
   getPostForEdit,
+  getSignatures,
   type CreatePostChannel,
   type PostizSet,
   type EditPostData,
+  type Signature,
 } from '@/lib/postiz';
 import { useAsync } from '@/lib/useAsync';
 import {
@@ -86,6 +88,7 @@ export function ComposeScreen() {
   const [showChannels, setShowChannels] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<MediaItem | null>(null);
   const [sets, setSets] = useState<PostizSet[]>([]);
+  const [signatures, setSignatures] = useState<Signature[]>([]);
   const [drafts, setDrafts] = useState<CalendarPost[]>([]);
   const [setId, setSetId] = useState('');
   const [draftId, setDraftId] = useState('');
@@ -164,6 +167,23 @@ export function ComposeScreen() {
   useEffect(() => {
     void loadSets();
   }, [loadSets]);
+
+  useEffect(() => {
+    getSignatures()
+      .then(setSignatures)
+      .catch(() => {
+        /* signatures are optional */
+      });
+  }, []);
+
+  function insertSignature(id: string) {
+    const s = signatures.find((x) => x.id === id);
+    if (!s) return;
+    const text = stripHtml(s.content, 100000);
+    if (!text) return;
+    setCaption((c) => (c.trim() ? `${c.trimEnd()}\n\n${text}` : text));
+    markDirty();
+  }
 
   // Saved drafts, offered as a quick-load dropdown (not while editing one).
   const loadDrafts = useCallback(async () => {
@@ -563,6 +583,20 @@ export function ComposeScreen() {
           placeholder="What do you want to say?"
           className="w-full resize-y rounded-[10px] border border-newBorder bg-newBgColorInner p-3 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none focus:ring-2 focus:ring-btnPrimary/40"
         />
+        {signatures.length > 0 && (
+          <Select
+            value=""
+            onChange={(e) => e.target.value && insertSignature(e.target.value)}
+            wrapperClassName="mt-1"
+          >
+            <option value="">Insert signature…</option>
+            {signatures.map((s) => (
+              <option key={s.id} value={s.id}>
+                {stripHtml(s.content, 40) || '(empty)'}
+              </option>
+            ))}
+          </Select>
+        )}
       </Field>
 
       {/* Media */}

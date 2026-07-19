@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Moon, Sun, SignOut, ShieldCheck, GithubLogo } from '@phosphor-icons/react';
 import { useAuth } from '@/auth/AuthContext';
 import { getConfig } from '@/lib/config';
 import { getTheme, setTheme, type Theme } from '@/lib/theme';
-import { Button, cx } from '@/components/ui';
+import { getShortlinkPref, setShortlinkPref, type ShortlinkPref } from '@/lib/postiz';
+import { friendlyError } from '@/lib/errors';
+import { Button, ErrorBanner, Select, cx } from '@/components/ui';
 import { SetsManager } from '@/components/SetsManager';
+import { SignaturesManager } from '@/components/SignaturesManager';
 
 export function SettingsScreen() {
   const { user, logout } = useAuth();
@@ -48,8 +51,14 @@ export function SettingsScreen() {
         value={storage === 'cloudflare' ? 'Object storage (S3-compatible)' : 'Local disk'}
       />
 
+      <ShortlinkSetting />
+
       <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <SetsManager />
+      </div>
+
+      <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
+        <SignaturesManager />
       </div>
 
       <div className="flex items-start gap-3 rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
@@ -74,6 +83,59 @@ export function SettingsScreen() {
         <GithubLogo size={14} weight="bold" /> Source code (AGPL-3.0)
       </a>
     </section>
+  );
+}
+
+function ShortlinkSetting() {
+  const [pref, setPref] = useState<ShortlinkPref | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getShortlinkPref()
+      .then(setPref)
+      .catch(() => setError('Could not load the short-link setting.'));
+  }, []);
+
+  async function change(next: ShortlinkPref) {
+    const prev = pref;
+    setPref(next);
+    setSaving(true);
+    setError(null);
+    try {
+      await setShortlinkPref(next);
+    } catch (err) {
+      setPref(prev);
+      setError(friendlyError(err, 'Could not update the short-link setting.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-newTableText">
+            Short links
+          </p>
+          <p className="mt-1 text-[13px] text-newTableText">
+            Shorten links in your posts.
+          </p>
+        </div>
+        <Select
+          value={pref ?? 'ASK'}
+          disabled={pref === null || saving}
+          onChange={(e) => change(e.target.value as ShortlinkPref)}
+          wrapperClassName="w-[132px] shrink-0"
+        >
+          <option value="ASK">Ask each time</option>
+          <option value="YES">Always</option>
+          <option value="NO">Never</option>
+        </Select>
+      </div>
+      {error && <ErrorBanner message={error} />}
+    </div>
   );
 }
 

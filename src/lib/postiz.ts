@@ -177,6 +177,48 @@ export function deleteSet(id: string): Promise<unknown> {
   return api.del(`/api/sets/${id}`);
 }
 
+// ----- Signatures (reusable text you can append to a post) -----
+
+export interface Signature {
+  id: string;
+  content: string; // may be HTML from the desktop editor
+  autoAdd: boolean; // the org's default signature (only one can be true)
+}
+
+export function getSignatures(): Promise<Signature[]> {
+  return api.get<Signature[]>('/api/signatures');
+}
+
+export function createSignature(content: string, autoAdd: boolean): Promise<{ id: string }> {
+  return api.post('/api/signatures', { content, autoAdd });
+}
+
+export function updateSignature(
+  id: string,
+  content: string,
+  autoAdd: boolean,
+): Promise<{ id: string }> {
+  return api.put(`/api/signatures/${id}`, { content, autoAdd });
+}
+
+export function deleteSignature(id: string): Promise<unknown> {
+  return api.del(`/api/signatures/${id}`);
+}
+
+// ----- Org settings relevant to posting -----
+
+export type ShortlinkPref = 'ASK' | 'YES' | 'NO';
+
+/** Whether links in posts get shortened: ASK per-post, always (YES), never (NO). */
+export async function getShortlinkPref(): Promise<ShortlinkPref> {
+  const r = await api.get<{ shortlink?: string }>('/api/settings/shortlink');
+  return r?.shortlink === 'YES' || r?.shortlink === 'NO' ? r.shortlink : 'ASK';
+}
+
+export function setShortlinkPref(shortlink: ShortlinkPref): Promise<unknown> {
+  return api.post('/api/settings/shortlink', { shortlink });
+}
+
 export function parseSetContent(content: string): ParsedSet {
   const d = JSON.parse(content) as {
     posts?: {
