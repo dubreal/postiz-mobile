@@ -251,9 +251,13 @@ export function ComposeScreen() {
   );
 
   // Reopen the Compose screen on the Set last used, applied automatically once.
+  // Wait for BOTH sets and channels to load: applySet maps each channel's saved
+  // settings into the field UI via `channels`, so applying before channels are
+  // ready seeds every field empty (missing title/audience, post_type reads as
+  // unset) and the once-guard would lock that bad state in.
   const autoAppliedRef = useRef(false);
   useEffect(() => {
-    if (editId || autoAppliedRef.current || sets.length === 0) return;
+    if (editId || autoAppliedRef.current || sets.length === 0 || !channels) return;
     autoAppliedRef.current = true;
     const last = getLastSetId();
     const s = last ? sets.find((x) => x.id === last) : undefined;
@@ -261,7 +265,7 @@ export function ComposeScreen() {
       setSetId(s.id);
       applySet(s);
     }
-  }, [sets, editId, applySet]);
+  }, [sets, channels, editId, applySet]);
 
   /** Current composer state as post channels (shared by submit and save-as-set). */
   const currentChannels = useCallback(
