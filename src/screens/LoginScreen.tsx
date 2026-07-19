@@ -32,12 +32,11 @@ export function LoginScreen() {
     <div className="flex min-h-[100dvh] items-center justify-center bg-newBgColor px-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <span className="text-2xl font-extrabold tracking-tight text-newTextColor">
-              Postiz
-            </span>
-            <span className="rounded bg-btnPrimary/15 px-2 py-0.5 text-xs font-semibold text-btnPrimary">
-              mobile
+          <div className="mb-2">
+            {/* Matches the app header brand, at 2x scale (header is text-[15px]). */}
+            <span className="text-[30px] font-extrabold tracking-tight">
+              <span className="text-newTextColor">Postiz</span>{' '}
+              <span className="text-btnPrimary">Mobile</span>
             </span>
           </div>
           <p className="text-sm text-newTableText">
