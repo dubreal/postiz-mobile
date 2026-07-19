@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   Image as ImageIcon,
@@ -83,7 +83,6 @@ export function ComposeScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const [confirmCancel, setConfirmCancel] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<MediaItem | null>(null);
   const [sets, setSets] = useState<PostizSet[]>([]);
@@ -100,6 +99,25 @@ export function ComposeScreen() {
   const [pendingSwitch, setPendingSwitch] = useState<{ kind: 'set' | 'draft'; id: string } | null>(null);
   const [confirmDeleteDraft, setConfirmDeleteDraft] = useState(false);
   const markDirty = () => setDirty(true);
+
+  // Guard against leaving with unsaved changes. Active only while dirty and not
+  // in the middle of a successful submit (which navigates away on purpose).
+  const guardOn = dirty && !submitting && !done;
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      guardOn && currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  // Also warn on tab close / refresh / hard navigation (outside the SPA router).
+  useEffect(() => {
+    if (!guardOn) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [guardOn]);
 
   const active = useMemo(
     () => (channels ?? []).filter((c) => selectedIds.has(c.id)),
@@ -760,11 +778,7 @@ export function ComposeScreen() {
                 ? 'Save draft'
                 : 'Schedule post'}
         </Button>
-        <Button
-          variant="ghost"
-          onClick={() => setConfirmCancel(true)}
-          className="flex-1"
-        >
+        <Button variant="ghost" onClick={() => navigate('/')} className="flex-1">
           Cancel
         </Button>
       </div>
@@ -784,15 +798,15 @@ export function ComposeScreen() {
         <MediaViewer item={viewingMedia} onClose={() => setViewingMedia(null)} />
       )}
 
-      {confirmCancel && (
+      {blocker.state === 'blocked' && (
         <ConfirmModal
-          title="Discard changes?"
-          message="Any changes to this post will be lost."
-          confirmLabel="Discard"
-          cancelLabel="Keep editing"
+          title="Leave without saving?"
+          message="You have unsaved changes to this post. If you leave, they will be lost."
+          confirmLabel="Leave"
+          cancelLabel="Stay"
           danger
-          onConfirm={() => navigate('/')}
-          onCancel={() => setConfirmCancel(false)}
+          onConfirm={() => blocker.proceed()}
+          onCancel={() => blocker.reset()}
         />
       )}
 
