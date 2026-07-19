@@ -33,7 +33,14 @@ import {
   fieldsToSettings,
   type ProviderFieldSpec,
 } from '@/lib/providers';
-import { defaultScheduleLocal, localInputToUtcISO, stripHtml, toLocal } from '@/lib/format';
+import {
+  defaultScheduleLocal,
+  isPastLocalInput,
+  localInputToUtcISO,
+  nowLocalInput,
+  stripHtml,
+  toLocal,
+} from '@/lib/format';
 import { getLastSetId, setLastSetId } from '@/lib/prefs';
 import { friendlyError } from '@/lib/errors';
 import { Button, ConfirmModal, ErrorBanner, ErrorState, Select, Spinner } from '@/components/ui';
@@ -420,6 +427,9 @@ export function ComposeScreen() {
     if (active.length === 0) return 'Pick at least one channel.';
     if (!caption.trim() && attached.length === 0)
       return 'Write a caption or attach media.';
+    // Block past times for scheduling and edits/drafts; Post now is exempt.
+    if (!postNow && isPastLocalInput(scheduleLocal))
+      return 'Pick a date and time in the future.';
     for (const intg of active) {
       for (const f of PROVIDER_FIELDS[intg.identifier] ?? []) {
         if (f.required && !(fieldValues[intg.id]?.[f.key] ?? '').trim()) {
@@ -710,6 +720,7 @@ export function ComposeScreen() {
         <input
           type="datetime-local"
           value={scheduleLocal}
+          min={nowLocalInput()}
           onChange={(e) => {
             setScheduleLocal(e.target.value);
             markDirty();

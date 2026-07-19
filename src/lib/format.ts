@@ -43,6 +43,16 @@ export function defaultScheduleLocal(): string {
   return dayjs().add(1, 'hour').startOf('hour').format('YYYY-MM-DDTHH:mm');
 }
 
+/** Current local time as a datetime-local value, for the input's `min`. */
+export function nowLocalInput(): string {
+  return dayjs().format('YYYY-MM-DDTHH:mm');
+}
+
+/** True if a datetime-local value is before the current minute (i.e. the past). */
+export function isPastLocalInput(localValue: string): boolean {
+  return dayjs(localValue).isBefore(dayjs().startOf('minute'));
+}
+
 /**
  * A post is locked (not editable) once it has published or is publishing now.
  * Postiz has no explicit "publishing" state, so a QUEUE post whose time has
