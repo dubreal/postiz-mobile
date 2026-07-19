@@ -15,6 +15,7 @@ import { friendlyError } from '@/lib/errors';
 import { Button, ErrorBanner, Select, cx } from '@/components/ui';
 import { SetsManager } from '@/components/SetsManager';
 import { SignaturesManager } from '@/components/SignaturesManager';
+import { StreakBadge } from '@/components/StreakBadge';
 
 export function SettingsScreen() {
   const { user, logout } = useAuth();
@@ -29,8 +30,9 @@ export function SettingsScreen() {
 
   return (
     <section className="flex flex-col gap-6">
-      <header>
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-newTextColor">Settings</h1>
+        <StreakBadge />
       </header>
 
       <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">

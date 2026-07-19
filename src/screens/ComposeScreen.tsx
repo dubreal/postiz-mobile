@@ -42,6 +42,7 @@ import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
 import { MediaPicker } from '@/components/MediaPicker';
 import { ChannelPickerSheet } from '@/components/ChannelPickerSheet';
+import { StreakBadge } from '@/components/StreakBadge';
 import type { CalendarPost, Integration, MediaItem } from '@/lib/types';
 
 type FieldValues = Record<string, Record<string, string>>; // integrationId -> key -> value
@@ -469,10 +470,11 @@ export function ComposeScreen() {
 
   return (
     <section className="flex flex-col gap-6">
-      <header>
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-newTextColor">
           {editData ? 'Edit post' : 'Compose'}
         </h1>
+        <StreakBadge />
       </header>
 
       {/* Quick-load: continue a draft, or start from a saved Set */}

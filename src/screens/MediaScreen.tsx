@@ -5,6 +5,7 @@ import { EmptyState, ErrorState, Skeleton, ConfirmModal } from '@/components/ui'
 import { Uploader } from '@/components/Uploader';
 import { MediaGrid } from '@/components/MediaGrid';
 import { MediaViewer } from '@/components/MediaViewer';
+import { StreakBadge } from '@/components/StreakBadge';
 import { friendlyError } from '@/lib/errors';
 import type { MediaItem } from '@/lib/types';
 
@@ -52,8 +53,9 @@ export function MediaScreen() {
 
   return (
     <section>
-      <header className="mb-5">
+      <header className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-newTextColor">Media</h1>
+        <StreakBadge />
       </header>
 
       <div className="mb-5">

@@ -7,6 +7,8 @@ export interface SelfUser {
   name?: string | null;
   // Present only for org admins; we never send it anywhere. Existence => authed.
   publicApi?: string;
+  // Start of the current posting streak (ISO), or null if none.
+  streakSince?: string | null;
 }
 
 export interface Integration {

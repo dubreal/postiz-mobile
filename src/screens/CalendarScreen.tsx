@@ -19,6 +19,7 @@ import {
 import { EmptyState, ErrorState, Skeleton, cx } from '@/components/ui';
 import { ChannelAvatar, StateBadge } from '@/components/PostBits';
 import { PostDetailSheet } from '@/components/PostDetailSheet';
+import { StreakBadge } from '@/components/StreakBadge';
 import type { CalendarPost } from '@/lib/types';
 
 const VIEWS: { key: CalendarView; label: string }[] = [
@@ -80,8 +81,9 @@ export function CalendarScreen() {
 
   return (
     <section>
-      <header className="mb-3">
+      <header className="mb-3 flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-newTextColor">Calendar</h1>
+        <StreakBadge />
       </header>
 
       {/* View + sort controls */}
