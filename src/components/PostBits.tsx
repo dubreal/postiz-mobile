@@ -1,8 +1,14 @@
 import {
+  Butterfly,
   DiscordLogo,
   FacebookLogo,
+  GlobeSimple,
   InstagramLogo,
   LinkedinLogo,
+  MastodonLogo,
+  RedditLogo,
+  TelegramLogo,
+  ThreadsLogo,
   TiktokLogo,
   XLogo,
   YoutubeLogo,
@@ -22,7 +28,16 @@ const PLATFORM_BADGE: Record<string, { icon: Icon; bg: string }> = {
   facebook: { icon: FacebookLogo, bg: '#1877F2' },
   linkedin: { icon: LinkedinLogo, bg: '#0A66C2' },
   x: { icon: XLogo, bg: '#010101' },
+  // Phosphor has no Bluesky mark; its logo is a butterfly, so use that.
+  bluesky: { icon: Butterfly, bg: '#0285FF' },
+  telegram: { icon: TelegramLogo, bg: '#26A5E4' },
+  threads: { icon: ThreadsLogo, bg: '#010101' },
+  reddit: { icon: RedditLogo, bg: '#FF4500' },
+  mastodon: { icon: MastodonLogo, bg: '#6364FF' },
 };
+
+// Any provider we have not styled still gets a badge rather than a bare avatar.
+const FALLBACK_BADGE = { icon: GlobeSimple, bg: '#64748B' };
 
 export function ChannelAvatar({
   picture,
@@ -36,7 +51,7 @@ export function ChannelAvatar({
   badge?: boolean;
 }) {
   const label = providerLabel(identifier);
-  const platform = PLATFORM_BADGE[identifier];
+  const platform = PLATFORM_BADGE[identifier] ?? FALLBACK_BADGE;
   // Badge diameter scales with the avatar; icon sits inside it.
   const badgeSize = Math.max(12, Math.round(size * 0.42));
 

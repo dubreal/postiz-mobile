@@ -20,6 +20,11 @@ export const PROVIDER_META: Record<string, ProviderMeta> = {
   facebook: { label: 'Facebook', chip: 'bg-bgFacebook' },
   linkedin: { label: 'LinkedIn', chip: 'bg-bgLinkedin' },
   x: { label: 'X', chip: 'bg-[#111]' },
+  bluesky: { label: 'Bluesky', chip: 'bg-[#0285FF]' },
+  telegram: { label: 'Telegram', chip: 'bg-[#26A5E4]' },
+  threads: { label: 'Threads', chip: 'bg-[#111]' },
+  reddit: { label: 'Reddit', chip: 'bg-[#FF4500]' },
+  mastodon: { label: 'Mastodon', chip: 'bg-[#6364FF]' },
 };
 
 export function providerLabel(identifier: string): string {
