@@ -1,19 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError } from './api';
+import { friendlyError } from './errors';
 
 interface AsyncState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
   reload: () => void;
-}
-
-function messageFor(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 0) return 'Cannot reach the server.';
-    return err.message || `Request failed (${err.status}).`;
-  }
-  return 'Something went wrong.';
 }
 
 /** Runs an async fetcher on mount and whenever `deps` change. */
@@ -34,7 +26,7 @@ export function useAsync<T>(fetcher: () => Promise<T>, deps: unknown[]): AsyncSt
         if (alive) setData(res);
       })
       .catch((err) => {
-        if (alive) setError(messageFor(err));
+        if (alive) setError(friendlyError(err, 'Could not load. Please try again.'));
       })
       .finally(() => {
         if (alive) setLoading(false);
