@@ -8,7 +8,8 @@ import {
   BLANK_SET_CONTENT,
   type PostizSet,
 } from '@/lib/postiz';
-import { Button, ConfirmModal, Spinner, cx } from './ui';
+import { Button, ConfirmModal, ErrorBanner, Spinner, cx } from './ui';
+import { friendlyError } from '@/lib/errors';
 
 const rowInput =
   'min-w-0 flex-1 rounded-[10px] border border-newBorder bg-newBgColor px-3 py-2 text-[16px] text-newTextColor placeholder:text-newTableText focus:border-btnPrimary focus:outline-none';
@@ -115,8 +116,8 @@ export function SetsManager() {
       await load();
       setEditingId('');
       setDupId('');
-    } catch {
-      setError('That action failed. Try again.');
+    } catch (err) {
+      setError(friendlyError(err, 'That action failed. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -205,7 +206,7 @@ export function SetsManager() {
         </ul>
       )}
 
-      {error && <p className="text-sm text-[#ff6b6b]">{error}</p>}
+      {error && <ErrorBanner message={error} />}
 
       {deleting && (
         <ConfirmModal

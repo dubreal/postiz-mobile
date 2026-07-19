@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '@/auth/AuthContext';
-import { Button } from '@/components/ui';
+import { Button, ErrorBanner } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 
 export function LoginScreen() {
@@ -70,14 +70,7 @@ export function LoginScreen() {
             />
           </label>
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-[10px] bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff6b6b]"
-            >
-              {error}
-            </p>
-          )}
+          {error && <ErrorBanner message={error} />}
 
           <Button type="submit" loading={busy} className="mt-1 w-full">
             Sign in

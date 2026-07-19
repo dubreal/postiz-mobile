@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { X, LockSimple, ArrowSquareOut, Trash, PencilSimple } from '@phosphor-icons/react';
 import { deletePost } from '@/lib/postiz';
 import { isPostLocked, stripHtml, toLocal } from '@/lib/format';
-import { Button } from './ui';
+import { Button, ErrorBanner } from './ui';
 import { ChannelAvatar, StateBadge } from './PostBits';
 import { providerLabel } from '@/lib/providers';
+import { friendlyError } from '@/lib/errors';
 import type { CalendarPost } from '@/lib/types';
 
 export function PostDetailSheet({
@@ -30,7 +31,7 @@ export function PostDetailSheet({
       await deletePost(post.id);
       onDeleted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not delete the post.');
+      setError(friendlyError(err, 'Could not delete the post.'));
       setDeleting(false);
     }
   }
@@ -108,7 +109,7 @@ export function PostDetailSheet({
             <p className="text-xs text-newTableText">
               This post is scheduled and hasn&apos;t published yet.
             </p>
-            {error && <p className="text-sm text-[#ff6b6b]">{error}</p>}
+            {error && <ErrorBanner message={error} />}
             <Button onClick={() => navigate(`/compose?edit=${post.id}`)}>
               <PencilSimple size={16} weight="bold" /> Edit post
             </Button>

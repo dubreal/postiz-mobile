@@ -79,6 +79,22 @@ export function Select({ bg = 'inner', wrapperClassName, className, children, ..
   );
 }
 
+/** Inline error banner: warning icon + a short human-readable message. */
+export function ErrorBanner({ message, className }: { message: string; className?: string }) {
+  return (
+    <div
+      role="alert"
+      className={cx(
+        'flex items-start gap-2 rounded-[10px] border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2.5 text-sm text-[#ff6b6b]',
+        className,
+      )}
+    >
+      <Warning size={16} weight="fill" className="mt-[1px] shrink-0" />
+      <span className="min-w-0 break-words">{message}</span>
+    </div>
+  );
+}
+
 export function Spinner({ label }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-newTableText">

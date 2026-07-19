@@ -4,6 +4,7 @@ import { UploadSimple } from '@phosphor-icons/react';
 import { createUppy } from '@/lib/upload';
 import { getConfig } from '@/lib/config';
 import { Button } from './ui';
+import { friendlyError } from '@/lib/errors';
 import type { MediaItem } from '@/lib/types';
 
 interface Progress {
@@ -133,7 +134,7 @@ export function Uploader({ onUploaded }: { onUploaded: (item: MediaItem) => void
       try {
         uppy.addFile({ name: file.name, type: file.type, data: file });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not add file.');
+        setError(friendlyError(err, 'Could not add file.'));
       }
     }
     e.target.value = '';

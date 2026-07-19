@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, Skeleton, ConfirmModal } from '@/components/ui'
 import { Uploader } from '@/components/Uploader';
 import { MediaGrid } from '@/components/MediaGrid';
 import { MediaViewer } from '@/components/MediaViewer';
-import { ApiError } from '@/lib/api';
+import { friendlyError } from '@/lib/errors';
 import type { MediaItem } from '@/lib/types';
 
 export function MediaScreen() {
@@ -23,7 +23,7 @@ export function MediaScreen() {
       const res = await getMedia(1);
       setItems(res.results ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load media.');
+      setError(friendlyError(err, 'Could not load media.'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export function MediaScreen() {
       setItems((prev) => prev.filter((p) => p.id !== id));
       setDeletingItem(null);
     } catch (err) {
-      setDeleteError(err instanceof ApiError ? err.message : 'Could not delete.');
+      setDeleteError(friendlyError(err, 'Could not delete.'));
     }
   }
 

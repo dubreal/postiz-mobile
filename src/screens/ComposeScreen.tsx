@@ -33,7 +33,8 @@ import {
 } from '@/lib/providers';
 import { defaultScheduleLocal, localInputToUtcISO, stripHtml, toLocal } from '@/lib/format';
 import { getLastSetId, setLastSetId } from '@/lib/prefs';
-import { Button, ConfirmModal, ErrorState, Select, Spinner } from '@/components/ui';
+import { friendlyError } from '@/lib/errors';
+import { Button, ConfirmModal, ErrorBanner, ErrorState, Select, Spinner } from '@/components/ui';
 import { MediaThumb } from '@/components/MediaGrid';
 import { MediaViewer } from '@/components/MediaViewer';
 import { ChannelAvatar as Avatar } from '@/components/PostBits';
@@ -306,7 +307,7 @@ export function ComposeScreen() {
       cancelSaveSet();
       await loadSets();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Could not save the set.');
+      setFormError(friendlyError(err, 'Could not save the set.'));
     } finally {
       setSavingSet(false);
     }
@@ -403,9 +404,7 @@ export function ComposeScreen() {
       setDone(true);
       setTimeout(() => navigate('/'), 1200);
     } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : 'Could not schedule the post.',
-      );
+      setFormError(friendlyError(err, 'Could not schedule the post.'));
       setSubmitting(false);
     }
   }
@@ -744,11 +743,7 @@ export function ComposeScreen() {
         </details>
       )}
 
-      {formError && (
-        <p role="alert" className="rounded-[10px] bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff6b6b]">
-          {formError}
-        </p>
-      )}
+      {formError && <ErrorBanner message={formError} />}
 
       <div className="flex gap-2">
         <Button

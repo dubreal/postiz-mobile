@@ -4,7 +4,7 @@ import { Spinner, ErrorState } from './ui';
 import { Uploader } from './Uploader';
 import { MediaGrid } from './MediaGrid';
 import { MediaViewer } from './MediaViewer';
-import { ApiError } from '@/lib/api';
+import { friendlyError } from '@/lib/errors';
 import type { MediaItem } from '@/lib/types';
 
 export function MediaPicker({
@@ -27,7 +27,7 @@ export function MediaPicker({
       const res = await getMedia(1);
       setItems(res.results ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load media.');
+      setError(friendlyError(err, 'Could not load media.'));
     } finally {
       setLoading(false);
     }
