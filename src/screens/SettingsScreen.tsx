@@ -3,7 +3,14 @@ import { Moon, Sun, SignOut, ShieldCheck, GithubLogo } from '@phosphor-icons/rea
 import { useAuth } from '@/auth/AuthContext';
 import { getConfig } from '@/lib/config';
 import { getTheme, setTheme, type Theme } from '@/lib/theme';
-import { getShortlinkPref, setShortlinkPref, type ShortlinkPref } from '@/lib/postiz';
+import {
+  getShortlinkPref,
+  setShortlinkPref,
+  getEmailNotifications,
+  updateEmailNotifications,
+  type ShortlinkPref,
+  type EmailNotifications,
+} from '@/lib/postiz';
 import { friendlyError } from '@/lib/errors';
 import { Button, ErrorBanner, Select, cx } from '@/components/ui';
 import { SetsManager } from '@/components/SetsManager';
@@ -53,6 +60,8 @@ export function SettingsScreen() {
 
       <ShortlinkSetting />
 
+      <NotificationSettings />
+
       <div className="rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
         <SetsManager />
       </div>
@@ -83,6 +92,62 @@ export function SettingsScreen() {
         <GithubLogo size={14} weight="bold" /> Source code (AGPL-3.0)
       </a>
     </section>
+  );
+}
+
+const NOTIFY_FIELDS: { key: keyof EmailNotifications; label: string }[] = [
+  { key: 'sendSuccessEmails', label: 'When a post publishes' },
+  { key: 'sendFailureEmails', label: 'When a post fails' },
+  { key: 'sendStreakEmails', label: 'Posting streak reminders' },
+];
+
+function NotificationSettings() {
+  const [prefs, setPrefs] = useState<EmailNotifications | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getEmailNotifications()
+      .then(setPrefs)
+      .catch(() => setError('Could not load notification settings.'));
+  }, []);
+
+  async function toggle(key: keyof EmailNotifications, value: boolean) {
+    if (!prefs) return;
+    const prev = prefs;
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateEmailNotifications(next); // API needs all three flags
+    } catch (err) {
+      setPrefs(prev);
+      setError(friendlyError(err, 'Could not update notification settings.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[12px] border border-newBorder bg-newBgColorInner p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-newTableText">
+        Email notifications
+      </p>
+      {NOTIFY_FIELDS.map((f) => (
+        <label key={f.key} className="flex items-center justify-between gap-3">
+          <span className="text-[15px] text-newTextColor">{f.label}</span>
+          <input
+            type="checkbox"
+            checked={prefs?.[f.key] ?? false}
+            disabled={prefs === null || saving}
+            onChange={(e) => toggle(f.key, e.target.checked)}
+            className="h-5 w-5 shrink-0 accent-btnPrimary disabled:opacity-50"
+          />
+        </label>
+      ))}
+      {error && <ErrorBanner message={error} />}
+    </div>
   );
 }
 

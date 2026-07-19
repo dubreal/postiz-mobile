@@ -219,6 +219,23 @@ export function setShortlinkPref(shortlink: ShortlinkPref): Promise<unknown> {
   return api.post('/api/settings/shortlink', { shortlink });
 }
 
+// ----- Email notification preferences (per user) -----
+
+export interface EmailNotifications {
+  sendSuccessEmails: boolean; // email when a post publishes
+  sendFailureEmails: boolean; // email when a post fails
+  sendStreakEmails: boolean; // posting-streak emails
+}
+
+export function getEmailNotifications(): Promise<EmailNotifications> {
+  return api.get<EmailNotifications>('/api/user/email-notifications');
+}
+
+/** POST replaces all three flags at once (the API requires the full object). */
+export function updateEmailNotifications(prefs: EmailNotifications): Promise<unknown> {
+  return api.post('/api/user/email-notifications', { ...prefs });
+}
+
 export function parseSetContent(content: string): ParsedSet {
   const d = JSON.parse(content) as {
     posts?: {
