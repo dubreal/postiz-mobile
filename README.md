@@ -42,7 +42,7 @@ It is a static app plus a thin reverse proxy.
   <img src="docs/screenshots/notifications.jpg" alt="Notifications modal: a scrollable list of post-published notifications with relative times and an X to close" width="32%" />
   <img src="docs/screenshots/save-as-set.jpg" alt="Save as set: choose a new set or override an existing one, name it, and save or cancel" width="32%" />
   <img src="docs/screenshots/media-v2.jpg" alt="Media library: upload button and a grid of uploaded videos with delete controls" width="32%" />
-  <img src="docs/screenshots/settings-v2.jpg" alt="Settings: appearance, short-link preference, email notification toggles, the Sets manager, and signatures" width="32%" />
+  <img src="docs/screenshots/settings-v3.jpg" alt="Settings: appearance, short-link preference, email notification toggles, the Sets manager, and signatures" width="32%" />
 </p>
 
 _Calendar (month and list) with the posting-streak and notifications indicators; Compose with the channel picker, media picker, per-channel options, and save-as-set; the notifications modal; the Media library; and Settings._
