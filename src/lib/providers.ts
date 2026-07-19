@@ -46,6 +46,29 @@ export interface ProviderFieldSpec {
 // (v2.21.9 providers-settings DTOs). Complex media inputs the mobile UI does not
 // yet support (YouTube thumbnail, Instagram audio) are intentionally omitted;
 // their values are preserved untouched from an applied Set or edited post.
+const INSTAGRAM_FIELDS: ProviderFieldSpec[] = [
+  {
+    key: 'post_type',
+    label: 'Post type',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'post', label: 'Feed post / Reel' },
+      { value: 'story', label: 'Story' },
+    ],
+  },
+  {
+    key: 'collaborators',
+    label: 'Collaborators',
+    type: 'tags',
+    required: false,
+    tagShape: 'label',
+    placeholder: 'username1, username2',
+    help: 'Comma-separated Instagram usernames.',
+  },
+  { key: 'is_trial_reel', label: 'Trial reel', type: 'toggle', required: false },
+];
+
 export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
   youtube: [
     {
@@ -163,27 +186,58 @@ export const PROVIDER_FIELDS: Record<string, ProviderFieldSpec[]> = {
       help: 'The numeric channel ID to post into.',
     },
   ],
-  'instagram-standalone': [
+  // Both Instagram providers share InstagramDto, so they get the same fields.
+  'instagram-standalone': INSTAGRAM_FIELDS,
+  instagram: INSTAGRAM_FIELDS,
+  x: [
+    {
+      key: 'who_can_reply_post',
+      label: 'Who can reply',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'everyone', label: 'Everyone' },
+        { value: 'following', label: 'Accounts you follow' },
+        { value: 'mentionedUsers', label: 'Mentioned accounts only' },
+        { value: 'subscribers', label: 'Subscribers' },
+        { value: 'verified', label: 'Verified accounts' },
+      ],
+    },
+    {
+      key: 'community',
+      label: 'Community URL',
+      type: 'text',
+      required: false,
+      placeholder: 'https://x.com/i/communities/1493446837214187523',
+      help: 'Optional. Must be a full X community URL, or left empty.',
+    },
+    { key: 'made_with_ai', label: 'Made with AI', type: 'toggle', required: false },
+    {
+      key: 'paid_partnership',
+      label: 'Paid partnership',
+      type: 'toggle',
+      required: false,
+    },
+  ],
+  facebook: [
     {
       key: 'post_type',
       label: 'Post type',
       type: 'select',
-      required: true,
+      required: false,
       options: [
         { value: 'post', label: 'Feed post / Reel' },
         { value: 'story', label: 'Story' },
       ],
     },
     {
-      key: 'collaborators',
-      label: 'Collaborators',
-      type: 'tags',
+      key: 'url',
+      label: 'Link URL',
+      type: 'text',
       required: false,
-      tagShape: 'label',
-      placeholder: 'username1, username2',
-      help: 'Comma-separated Instagram usernames.',
+      placeholder: 'https://example.com',
+      help: 'Optional link to attach to the post.',
     },
-    { key: 'is_trial_reel', label: 'Trial reel', type: 'toggle', required: false },
   ],
 };
 
@@ -210,6 +264,11 @@ export function defaultSettings(identifier: string): Record<string, unknown> {
     case 'instagram-standalone':
     case 'instagram':
       return { post_type: 'post', collaborators: [] };
+    // XDto requires who_can_reply_post; an empty object fails validation.
+    case 'x':
+      return { who_can_reply_post: 'everyone' };
+    // bluesky, telegram and threads have no settings DTO in Postiz, so an empty
+    // object is correct for them -- "no extra options" is not a bug there.
     default:
       return {};
   }
